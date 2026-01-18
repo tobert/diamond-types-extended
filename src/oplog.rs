@@ -1103,6 +1103,761 @@ mod tests {
         assert!(set1.contains(&Primitive::Str("concurrent-b".into())));
     }
 
+    // ===== Concurrent Operations Test Suite =====
+    //
+    // These tests exercise CRDT semantics under concurrent operations
+    // from multiple peers, verifying convergence after sync.
+
+    use crate::DTValue;
+
+    /// Helper to sync two oplogs bidirectionally
+    fn sync_oplogs(a: &mut OpLog, b: &mut OpLog) {
+        // Sync A -> B, then B -> A
+        // Order matters: second merge may include changes from first
+        a.merge_ops(b.ops_since(&[])).unwrap();
+        b.merge_ops(a.ops_since(&[])).unwrap();
+    }
+
+    /// Helper to sync three oplogs (all pairs)
+    fn sync_three_oplogs(a: &mut OpLog, b: &mut OpLog, c: &mut OpLog) {
+        // Round 1: A <-> B
+        a.merge_ops(b.ops_since(&[])).unwrap();
+        b.merge_ops(a.ops_since(&[])).unwrap();
+
+        // Round 2: A <-> C (A now has B's changes)
+        a.merge_ops(c.ops_since(&[])).unwrap();
+        c.merge_ops(a.ops_since(&[])).unwrap();
+
+        // Round 3: B <-> C (to ensure B gets C's original changes)
+        b.merge_ops(c.ops_since(&[])).unwrap();
+        c.merge_ops(b.ops_since(&[])).unwrap();
+    }
+
+    #[test]
+    fn concurrent_map_same_key_lww() {
+        // Two peers write to the same key concurrently
+        // LWW semantics: higher agent ID wins ties
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+
+        // Both know about each other
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Concurrent writes to same key
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "color",
+            CreateValue::Primitive(Primitive::Str("red".into())));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "color",
+            CreateValue::Primitive(Primitive::Str("blue".into())));
+
+        // Sync
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Should converge
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+
+        // One value wins (LWW based on agent ordering)
+        let checkout = oplog1.checkout();
+        let color = checkout.get("color").unwrap().as_ref();
+        match color {
+            DTValue::Primitive(Primitive::Str(s)) => {
+                assert!(s == "red" || s == "blue", "Unexpected color: {}", s);
+            }
+            _ => panic!("Expected Primitive::Str, got {:?}", color),
+        }
+    }
+
+    #[test]
+    fn concurrent_map_different_keys() {
+        // Two peers write to different keys concurrently
+        // Both writes should be preserved
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Concurrent writes to different keys
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "name",
+            CreateValue::Primitive(Primitive::Str("Alice".into())));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "age",
+            CreateValue::Primitive(Primitive::I64(30)));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+
+        // Both keys present
+        let checkout = oplog1.checkout();
+        assert!(checkout.contains_key("name"));
+        assert!(checkout.contains_key("age"));
+    }
+
+    #[test]
+    fn concurrent_map_overwrite_sequence() {
+        // Multiple rounds of concurrent overwrites
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Round 1: concurrent writes
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(1)));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(2)));
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Round 2: more concurrent writes
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(3)));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(4)));
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Round 3: one more
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(5)));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(6)));
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+    }
+
+    #[test]
+    fn concurrent_set_add_wins() {
+        // OR-Set add-wins semantics: concurrent add + remove = element present
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Alice creates set and adds element
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, set_id, Primitive::Str("x".into()));
+
+        // Sync so Bob has the set with "x"
+        sync_oplogs(&mut oplog1, &mut oplog2);
+        let (_, set_id2) = oplog2.crdt_at_path(&["items"]);
+
+        // Now concurrent: Alice adds "x" again, Bob removes "x"
+        oplog1.local_set_add(alice, set_id, Primitive::Str("x".into()));
+        oplog2.local_set_remove(bob, set_id2, Primitive::Str("x".into()));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+
+        // Add-wins: "x" should be present because Alice's concurrent add survives
+        let set1 = oplog1.checkout_set(set_id);
+        let set2 = oplog2.checkout_set(set_id2);
+        assert_eq!(set1, set2);
+        assert!(set1.contains(&Primitive::Str("x".into())),
+            "Add-wins failed: element should be present after concurrent add+remove");
+    }
+
+    #[test]
+    fn concurrent_set_remove_observed_add() {
+        // Remove that observes an add should remove it
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Alice creates set and adds element
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, set_id, Primitive::Str("x".into()));
+
+        // Sync - Bob observes the add
+        sync_oplogs(&mut oplog1, &mut oplog2);
+        let (_, set_id2) = oplog2.crdt_at_path(&["items"]);
+
+        // Bob removes (having observed Alice's add)
+        oplog2.local_set_remove(bob, set_id2, Primitive::Str("x".into()));
+
+        // Sync
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Element should be gone (remove observed the add)
+        let set1 = oplog1.checkout_set(set_id);
+        let set2 = oplog2.checkout_set(set_id2);
+        assert_eq!(set1, set2);
+        assert!(!set1.contains(&Primitive::Str("x".into())),
+            "Element should be removed when remove observes the add");
+    }
+
+    #[test]
+    fn concurrent_set_multiple_adds_same_element() {
+        // Multiple peers concurrently add the same element
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+        let mut oplog3 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let carol = oplog3.cg.get_or_create_agent_id("carol");
+
+        // Everyone knows everyone
+        for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
+            oplog.cg.get_or_create_agent_id("alice");
+            oplog.cg.get_or_create_agent_id("bob");
+            oplog.cg.get_or_create_agent_id("carol");
+        }
+
+        // Alice creates set
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+
+        // Sync set creation
+        sync_three_oplogs(&mut oplog1, &mut oplog2, &mut oplog3);
+        let (_, set_id2) = oplog2.crdt_at_path(&["tags"]);
+        let (_, set_id3) = oplog3.crdt_at_path(&["tags"]);
+
+        // All three concurrently add "important"
+        oplog1.local_set_add(alice, set_id, Primitive::Str("important".into()));
+        oplog2.local_set_add(bob, set_id2, Primitive::Str("important".into()));
+        oplog3.local_set_add(carol, set_id3, Primitive::Str("important".into()));
+
+        sync_three_oplogs(&mut oplog1, &mut oplog2, &mut oplog3);
+
+        // All should converge with element present
+        let set1 = oplog1.checkout_set(set_id);
+        let set2 = oplog2.checkout_set(set_id2);
+        let set3 = oplog3.checkout_set(set_id3);
+
+        assert_eq!(set1, set2);
+        assert_eq!(set2, set3);
+        assert!(set1.contains(&Primitive::Str("important".into())));
+    }
+
+    #[test]
+    fn concurrent_set_partial_remove() {
+        // Remove only sees some of the concurrent adds
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+        let mut oplog3 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let carol = oplog3.cg.get_or_create_agent_id("carol");
+
+        for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
+            oplog.cg.get_or_create_agent_id("alice");
+            oplog.cg.get_or_create_agent_id("bob");
+            oplog.cg.get_or_create_agent_id("carol");
+        }
+
+        // Alice creates set and adds element
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, set_id, Primitive::Str("x".into()));
+
+        // Sync to Bob only (Carol doesn't see Alice's add yet)
+        let alice_ops = oplog1.ops_since(&[]);
+        oplog2.merge_ops(alice_ops).unwrap();
+        let (_, set_id2) = oplog2.crdt_at_path(&["items"]);
+
+        // Bob removes "x" (observing Alice's add)
+        oplog2.local_set_remove(bob, set_id2, Primitive::Str("x".into()));
+
+        // Carol gets the set and concurrently adds "x"
+        let alice_ops = oplog1.ops_since(&[]);
+        oplog3.merge_ops(alice_ops).unwrap();
+        let (_, set_id3) = oplog3.crdt_at_path(&["items"]);
+        oplog3.local_set_add(carol, set_id3, Primitive::Str("x".into()));
+
+        // Now sync everyone
+        sync_three_oplogs(&mut oplog1, &mut oplog2, &mut oplog3);
+
+        // Element should be present (Carol's add wasn't observed by Bob's remove)
+        let set1 = oplog1.checkout_set(set_id);
+        let set2 = oplog2.checkout_set(set_id2);
+        let set3 = oplog3.checkout_set(set_id3);
+
+        assert_eq!(set1, set2);
+        assert_eq!(set2, set3);
+        assert!(set1.contains(&Primitive::Str("x".into())),
+            "Element should survive: Carol's add wasn't observed by Bob's remove");
+    }
+
+    #[test]
+    fn concurrent_nested_crdt_creation() {
+        // Two peers concurrently create nested CRDTs at same key
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Both create a nested map at "data"
+        let map1 = oplog1.local_map_set(alice, ROOT_CRDT_ID, "data",
+            CreateValue::NewCRDT(CRDTKind::Map));
+        let map2 = oplog2.local_map_set(bob, ROOT_CRDT_ID, "data",
+            CreateValue::NewCRDT(CRDTKind::Map));
+
+        // Each writes to their local nested map
+        oplog1.local_map_set(alice, map1, "alice_key",
+            CreateValue::Primitive(Primitive::I64(1)));
+        oplog2.local_map_set(bob, map2, "bob_key",
+            CreateValue::Primitive(Primitive::I64(2)));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+    }
+
+    #[test]
+    fn concurrent_mixed_crdt_operations() {
+        // Concurrent operations across different CRDT types
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Alice creates a set
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, set_id, Primitive::Str("a".into()));
+
+        // Bob creates a text
+        let text_id = oplog2.local_map_set(bob, ROOT_CRDT_ID, "content",
+            CreateValue::NewCRDT(CRDTKind::Text));
+        oplog2.local_text_op(bob, text_id, TextOperation::new_insert(0, "Hello"));
+
+        // Sync
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Both add more
+        oplog1.local_set_add(alice, set_id, Primitive::Str("b".into()));
+        let (_, text_id2) = oplog2.crdt_at_path(&["content"]);
+        oplog2.local_text_op(bob, text_id2, TextOperation::new_insert(5, " World"));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+
+        // Verify contents
+        let checkout = oplog1.checkout();
+        assert!(checkout.contains_key("tags"));
+        assert!(checkout.contains_key("content"));
+    }
+
+    #[test]
+    fn three_way_concurrent_map_writes() {
+        // Three peers all write to same key concurrently
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+        let mut oplog3 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let carol = oplog3.cg.get_or_create_agent_id("carol");
+
+        for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
+            oplog.cg.get_or_create_agent_id("alice");
+            oplog.cg.get_or_create_agent_id("bob");
+            oplog.cg.get_or_create_agent_id("carol");
+        }
+
+        // All three write to "winner" concurrently
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "winner",
+            CreateValue::Primitive(Primitive::Str("alice".into())));
+        oplog2.local_map_set(bob, ROOT_CRDT_ID, "winner",
+            CreateValue::Primitive(Primitive::Str("bob".into())));
+        oplog3.local_map_set(carol, ROOT_CRDT_ID, "winner",
+            CreateValue::Primitive(Primitive::Str("carol".into())));
+
+        sync_three_oplogs(&mut oplog1, &mut oplog2, &mut oplog3);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        oplog3.dbg_check(true);
+
+        // All must converge to same value
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+        assert_eq!(oplog2.checkout(), oplog3.checkout());
+    }
+
+    #[test]
+    fn concurrent_operations_with_delayed_sync() {
+        // Operations accumulate before sync
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Alice does many operations
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "numbers",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        for i in 0..10 {
+            oplog1.local_set_add(alice, set_id, Primitive::I64(i));
+        }
+        oplog1.local_map_set(alice, ROOT_CRDT_ID, "count",
+            CreateValue::Primitive(Primitive::I64(10)));
+
+        // Bob does many operations independently
+        let text_id = oplog2.local_map_set(bob, ROOT_CRDT_ID, "log",
+            CreateValue::NewCRDT(CRDTKind::Text));
+        oplog2.local_text_op(bob, text_id, TextOperation::new_insert(0, "Line 1\n"));
+        oplog2.local_text_op(bob, text_id, TextOperation::new_insert(7, "Line 2\n"));
+        oplog2.local_text_op(bob, text_id, TextOperation::new_insert(14, "Line 3\n"));
+
+        // Big sync
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+
+        // Verify all data present
+        let checkout = oplog1.checkout();
+        assert!(checkout.contains_key("numbers"));
+        assert!(checkout.contains_key("count"));
+        assert!(checkout.contains_key("log"));
+    }
+
+    #[test]
+    fn serialization_roundtrip_concurrent_ops() {
+        // Verify ops_since/merge_ops works correctly with concurrent operations
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+        let mut oplog3 = OpLog::new(); // Fresh peer joins late
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        oplog1.cg.get_or_create_agent_id("bob");
+        oplog2.cg.get_or_create_agent_id("alice");
+
+        // Create structure
+        let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, set_id, Primitive::I64(1));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+        let (_, set_id2) = oplog2.crdt_at_path(&["items"]);
+
+        // Concurrent modifications
+        oplog1.local_set_add(alice, set_id, Primitive::I64(2));
+        oplog1.local_set_add(alice, set_id, Primitive::I64(3));
+        oplog2.local_set_add(bob, set_id2, Primitive::I64(4));
+        oplog2.local_set_remove(bob, set_id2, Primitive::I64(1));
+
+        sync_oplogs(&mut oplog1, &mut oplog2);
+
+        // Now oplog3 joins and gets everything via serialization
+        let full_ops = oplog1.ops_since(&[]);
+        oplog3.merge_ops(full_ops).unwrap();
+
+        oplog3.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog3.checkout());
+    }
+
+    // ===== Extreme Concurrency Stress Tests =====
+    //
+    // These tests push concurrency to extremes: many writers, many operations,
+    // randomized sync patterns. They verify convergence under stress.
+
+    /// Create N oplogs with registered agents
+    fn create_oplogs(n: usize) -> Vec<OpLog> {
+        let agent_names: Vec<String> = (0..n).map(|i| format!("agent_{}", i)).collect();
+        let mut oplogs: Vec<OpLog> = (0..n).map(|_| OpLog::new()).collect();
+
+        // Register all agents in all oplogs
+        for oplog in &mut oplogs {
+            for name in &agent_names {
+                oplog.cg.get_or_create_agent_id(name);
+            }
+        }
+        oplogs
+    }
+
+    /// Sync all oplogs with each other (full mesh)
+    fn sync_all_oplogs(oplogs: &mut [OpLog]) {
+        let n = oplogs.len();
+        // Multiple rounds to ensure full propagation
+        for _ in 0..2 {
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    let (left, right) = oplogs.split_at_mut(j);
+                    let a = &mut left[i];
+                    let b = &mut right[0];
+                    a.merge_ops(b.ops_since(&[])).unwrap();
+                    b.merge_ops(a.ops_since(&[])).unwrap();
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn stress_many_writers_same_map_key() {
+        // 8 writers all write to the same key concurrently
+        const N: usize = 8;
+        let mut oplogs = create_oplogs(N);
+
+        // Each writer writes to "counter"
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            oplog.local_map_set(agent, ROOT_CRDT_ID, "counter",
+                CreateValue::Primitive(Primitive::I64(i as i64)));
+        }
+
+        // Sync all
+        sync_all_oplogs(&mut oplogs);
+
+        // All must converge
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+        let first = oplogs[0].checkout();
+        for oplog in &oplogs[1..] {
+            assert_eq!(first, oplog.checkout());
+        }
+    }
+
+    #[test]
+    fn stress_many_writers_map_rapid_overwrites() {
+        // 8 writers each do 10 rapid overwrites to the same key
+        const N: usize = 8;
+        const OPS_PER_WRITER: usize = 10;
+
+        let mut oplogs = create_oplogs(N);
+
+        // Each writer does multiple writes before sync
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            for j in 0..OPS_PER_WRITER {
+                oplog.local_map_set(agent, ROOT_CRDT_ID, "value",
+                    CreateValue::Primitive(Primitive::I64((i * 100 + j) as i64)));
+            }
+        }
+
+        // Sync all
+        sync_all_oplogs(&mut oplogs);
+
+        // Verify convergence
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+        let first = oplogs[0].checkout();
+        for oplog in &oplogs[1..] {
+            assert_eq!(first, oplog.checkout());
+        }
+    }
+
+    #[test]
+    fn stress_many_writers_set_concurrent_adds() {
+        // 8 writers all add different elements to the same set
+        const N: usize = 8;
+        let mut oplogs = create_oplogs(N);
+
+        // First writer creates the set
+        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let _set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+
+        // Sync set creation to all
+        sync_all_oplogs(&mut oplogs);
+
+        // Each writer adds their own tags
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let (_, set_id) = oplog.crdt_at_path(&["tags"]);
+            for j in 0..5 {
+                oplog.local_set_add(agent, set_id,
+                    Primitive::Str(format!("tag_{}_{}", i, j).into()));
+            }
+        }
+
+        // Sync all
+        sync_all_oplogs(&mut oplogs);
+
+        // Verify convergence - all 8 * 5 = 40 tags should be present
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+        let (_, set_id) = oplogs[0].crdt_at_path(&["tags"]);
+        let set = oplogs[0].checkout_set(set_id);
+        assert_eq!(set.len(), N * 5, "Expected {} elements, got {}", N * 5, set.len());
+
+        // All must have same set
+        for oplog in &oplogs[1..] {
+            let (_, sid) = oplog.crdt_at_path(&["tags"]);
+            assert_eq!(set, oplog.checkout_set(sid));
+        }
+    }
+
+    #[test]
+    fn stress_set_add_remove_chaos() {
+        // 8 writers: half add, half remove, same elements
+        const N: usize = 8;
+        let mut oplogs = create_oplogs(N);
+
+        // Create set and add initial elements
+        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "items",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        for i in 0..10 {
+            oplogs[0].local_set_add(agent0, set_id, Primitive::I64(i));
+        }
+
+        // Sync to all
+        sync_all_oplogs(&mut oplogs);
+
+        // Half add new elements, half try to remove existing ones
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let (_, set_id) = oplog.crdt_at_path(&["items"]);
+
+            if i % 2 == 0 {
+                // Adders: add new elements
+                for j in 0..5 {
+                    oplog.local_set_add(agent, set_id, Primitive::I64(100 + i as i64 * 10 + j));
+                }
+            } else {
+                // Removers: try to remove original elements
+                for j in 0..5 {
+                    oplog.local_set_remove(agent, set_id, Primitive::I64(j * 2));
+                }
+            }
+        }
+
+        // Sync all
+        sync_all_oplogs(&mut oplogs);
+
+        // Verify convergence
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+        let first = oplogs[0].checkout();
+        for oplog in &oplogs[1..] {
+            assert_eq!(first, oplog.checkout());
+        }
+    }
+
+    #[test]
+    fn stress_16_writers_map_convergence() {
+        // 16 writers, each writes to their own key and a shared key
+        const N: usize = 16;
+        let mut oplogs = create_oplogs(N);
+
+        // Each writer writes to their own key AND a shared key
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            // Own key
+            oplog.local_map_set(agent, ROOT_CRDT_ID, &format!("writer_{}", i),
+                CreateValue::Primitive(Primitive::I64(i as i64)));
+            // Shared key - concurrent writes
+            oplog.local_map_set(agent, ROOT_CRDT_ID, "shared",
+                CreateValue::Primitive(Primitive::Str(format!("from_{}", i).into())));
+        }
+
+        // Sync all
+        sync_all_oplogs(&mut oplogs);
+
+        // Verify convergence
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+
+        let first = oplogs[0].checkout();
+
+        // Should have 16 individual keys + 1 shared key = 17 keys
+        assert_eq!(first.len(), N + 1);
+
+        for oplog in &oplogs[1..] {
+            assert_eq!(first, oplog.checkout());
+        }
+    }
+
+    #[test]
+    fn stress_interleaved_sync_patterns() {
+        // 8 writers with interleaved sync - not everyone syncs with everyone
+        const N: usize = 8;
+        let mut oplogs = create_oplogs(N);
+
+        // Create shared set
+        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let _ = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "data",
+            CreateValue::NewCRDT(CRDTKind::Set));
+
+        // Partial sync - only adjacent pairs
+        for i in 0..(N - 1) {
+            let (left, right) = oplogs.split_at_mut(i + 1);
+            let a = &mut left[i];
+            let b = &mut right[0];
+            a.merge_ops(b.ops_since(&[])).unwrap();
+            b.merge_ops(a.ops_since(&[])).unwrap();
+        }
+
+        // Everyone adds to the set
+        for (i, oplog) in oplogs.iter_mut().enumerate() {
+            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let (_, set_id) = oplog.crdt_at_path(&["data"]);
+            oplog.local_set_add(agent, set_id, Primitive::I64(i as i64));
+        }
+
+        // Another round of partial sync (ring topology)
+        for i in 0..N {
+            let j = (i + 1) % N;
+            if i < j {
+                let (left, right) = oplogs.split_at_mut(j);
+                let a = &mut left[i];
+                let b = &mut right[0];
+                a.merge_ops(b.ops_since(&[])).unwrap();
+                b.merge_ops(a.ops_since(&[])).unwrap();
+            }
+        }
+
+        // Final full sync to ensure convergence
+        sync_all_oplogs(&mut oplogs);
+
+        // Verify all converge
+        for oplog in &oplogs {
+            oplog.dbg_check(true);
+        }
+        let first = oplogs[0].checkout();
+        for oplog in &oplogs[1..] {
+            assert_eq!(first, oplog.checkout());
+        }
+    }
+
     #[cfg(feature = "gen_test_data")]
     #[test]
     fn serde_stuff() {
