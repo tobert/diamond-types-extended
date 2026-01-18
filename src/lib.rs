@@ -211,6 +211,7 @@ use crate::textinfo::TextInfo;
 pub mod list;
 pub mod register;
 pub mod map;
+pub mod set;
 
 #[doc(hidden)]
 pub mod rle;
@@ -284,10 +285,11 @@ impl Debug for Primitive {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // #[repr(u16)]
 pub enum CRDTKind {
-    Map, // String => Register (like a JS object)
-    Register,
+    Map,        // String => Register (like a JS object)
+    Register,   // Single LWW value
     Collection, // SQL table / mongo collection
-    Text,
+    Text,       // Text/sequence CRDT
+    Set,        // OR-Set (add-wins semantics)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

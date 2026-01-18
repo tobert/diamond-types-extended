@@ -201,6 +201,7 @@ impl OpLog {
             CRDTKind::Map => {}
             CRDTKind::Register => {}
             CRDTKind::Collection => {}
+            CRDTKind::Set => {} // OR-Set storage will be added when integrated with OpLog
             CRDTKind::Text => {
                 self.texts.entry(v).or_default();
             }

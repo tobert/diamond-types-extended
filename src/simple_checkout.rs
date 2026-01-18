@@ -38,6 +38,10 @@ impl Branch {
             CRDTKind::Text => {
                 SimpleVal::Text(self.texts.get(&key).unwrap().to_string())
             }
+            CRDTKind::Set => {
+                // OR-Set checkout will be implemented when sets are fully integrated
+                SimpleVal::Primitive(Primitive::Nil)
+            }
         }
     }
 

@@ -119,6 +119,10 @@ impl OpLog {
                         }
                         RegisterValue::OwnedCRDT(CRDTKind::Register, _) => { todo!() }
                         RegisterValue::OwnedCRDT(CRDTKind::Collection, _) => { todo!() }
+                        RegisterValue::OwnedCRDT(CRDTKind::Set, _set_crdt) => {
+                            // OR-Set checkout will be implemented when sets are fully integrated
+                            todo!("OR-Set checkout not yet implemented")
+                        }
                         RegisterValue::OwnedCRDT(CRDTKind::Text, text_crdt) => {
                             // Eventually (rich) text items might contain more embedded CRDTs. But for
                             // now this is fine.
