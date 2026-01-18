@@ -778,6 +778,46 @@ mod tests {
 
 
 
+    // ===== Multi-CRDT Integration Tests =====
+
+    #[test]
+    fn multi_crdt_replication() {
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+
+        // Alice: creates nested structure
+        let user = oplog1.local_map_set(alice, ROOT_CRDT_ID, "user",
+            CreateValue::NewCRDT(CRDTKind::Map));
+        oplog1.local_map_set(alice, user, "name",
+            CreateValue::Primitive(Primitive::Str("Alice".into())));
+        let bio = oplog1.local_map_set(alice, user, "bio",
+            CreateValue::NewCRDT(CRDTKind::Text));
+        oplog1.local_text_op(alice, bio, TextOperation::new_insert(0, "Hello!"));
+
+        // Bob: makes concurrent changes
+        oplog2.cg.get_or_create_agent_id("alice"); // Know about Alice
+        let settings = oplog2.local_map_set(bob, ROOT_CRDT_ID, "settings",
+            CreateValue::NewCRDT(CRDTKind::Map));
+        oplog2.local_map_set(bob, settings, "theme",
+            CreateValue::Primitive(Primitive::Str("dark".into())));
+
+        // Exchange changes
+        oplog1.merge_ops(oplog2.ops_since(&[])).unwrap();
+        oplog2.merge_ops(oplog1.ops_since(&[])).unwrap();
+
+        // Verify convergence
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+        assert_eq!(oplog1.checkout(), oplog2.checkout());
+
+        // Verify structure
+        let checkout = oplog1.checkout();
+        assert!(checkout.contains_key("user"));
+        assert!(checkout.contains_key("settings"));
+    }
 
     #[cfg(feature = "gen_test_data")]
     #[test]
