@@ -397,7 +397,7 @@ impl Graph {
                     // Bleh.
                     last: *version.last().unwrap_or(&usize::MAX),
                     merged_with: if version.len() > 1 {
-                        SmallVec::from_slice(&version[..version.len() - 1])
+                        SmallVec::from_slice_copy(&version[..version.len() - 1])
                     } else {
                         smallvec![]
                     }
