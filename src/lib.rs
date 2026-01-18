@@ -463,6 +463,8 @@ pub struct SerializedOps<'a> {
     map_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, &'a str, CreateValue)>,
     text_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, ListOpMetrics)>,
     text_context: ListOperationCtx,
+    /// OR-Set operations: (crdt_name, op_version, SerializedSetOp<Primitive>)
+    set_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, set::SerializedSetOp<Primitive>)>,
 }
 
 impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
@@ -476,6 +478,9 @@ impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
                 (crdt_name.to_owned(), rv.to_owned(), metrics)
             }).collect(),
             text_context: ops.text_context,
+            set_ops: ops.set_ops.into_iter().map(|(crdt_name, rv, op)| {
+                (crdt_name.to_owned(), rv.to_owned(), op)
+            }).collect(),
         }
     }
 }
@@ -495,6 +500,8 @@ pub struct SerializedOpsOwned {
     map_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, SmartString, CreateValue)>,
     text_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, ListOpMetrics)>,
     text_context: ListOperationCtx,
+    /// OR-Set operations: (crdt_name, op_version, SerializedSetOp<Primitive>)
+    set_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, set::SerializedSetOp<Primitive>)>,
 }
 
 /// This is used for checkouts. This is a value tree.

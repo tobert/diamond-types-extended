@@ -19,6 +19,7 @@ use crate::frontier::{is_sorted_iter_uniq, is_sorted_slice};
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
 use crate::list::operation::TextOperation;
 use crate::rle::{KVPair, RleSpanHelpers};
+use crate::set::{StoredSetOp, SerializedSetOp};
 
 #[cfg(feature = "serde")]
 impl Serialize for OpLog {
@@ -362,6 +363,54 @@ impl OpLog {
         }
     }
 
+    // ===== OR-Set Operations =====
+
+    /// Add an element to an OR-Set locally.
+    ///
+    /// Returns the LV (which is also the add-tag) for this operation.
+    pub fn local_set_add(&mut self, agent: AgentId, set_id: LVKey, elem: Primitive) -> LV {
+        let lv = self.cg.assign_local_op(agent, 1).start;
+
+        let info = self.sets.get_mut(&set_id)
+            .expect("Set CRDT not found");
+        info.local_add(lv, elem);
+
+        self.set_index.insert(lv, set_id);
+        lv
+    }
+
+    /// Apply a remote add operation to an OR-Set.
+    pub fn remote_set_add(&mut self, set_id: LVKey, lv: LV, elem: Primitive, tag: LV) {
+        let info = self.sets.get_mut(&set_id)
+            .expect("Set CRDT not found");
+        info.remote_add(lv, elem, tag);
+
+        self.set_index.insert(lv, set_id);
+    }
+
+    /// Remove an element from an OR-Set locally.
+    ///
+    /// Returns the tags that were removed (for serialization/replication).
+    pub fn local_set_remove(&mut self, agent: AgentId, set_id: LVKey, elem: Primitive) -> (LV, Vec<LV>) {
+        let lv = self.cg.assign_local_op(agent, 1).start;
+
+        let info = self.sets.get_mut(&set_id)
+            .expect("Set CRDT not found");
+        let removed_tags = info.local_remove(lv, elem);
+
+        self.set_index.insert(lv, set_id);
+        (lv, removed_tags)
+    }
+
+    /// Apply a remote remove operation to an OR-Set.
+    pub fn remote_set_remove(&mut self, set_id: LVKey, lv: LV, elem: Primitive, tags: Vec<LV>) {
+        let info = self.sets.get_mut(&set_id)
+            .expect("Set CRDT not found");
+        info.remote_remove(lv, elem, tags);
+
+        self.set_index.insert(lv, set_id);
+    }
+
     // Its quite annoying, but RegisterInfo objects store the supremum as an array of indexes. This
     // returns the active index and (if necessary) the set of indexes of conflicting values.
     pub(crate) fn tie_break_mv<'a>(&self, reg: &'a RegisterInfo) -> (usize, Option<impl Iterator<Item = usize> + 'a>) {
@@ -529,6 +578,7 @@ impl OpLog {
         let mut cg_changes = Vec::new();
         let mut text_crdts_to_send = BTreeSet::new();
         let mut map_crdts_to_send = BTreeSet::new();
+        let mut set_crdts_to_send = BTreeSet::new();
         for range_rev in diff_rev.iter() {
             let iter = self.cg.iter_range(*range_rev);
             write_cg_entry_iter(&mut cg_changes, iter, &mut write_map, &self.cg);
@@ -540,6 +590,10 @@ impl OpLog {
             for (_, (map_crdt, key)) in self.map_index.range(*range_rev) {
                 // dbg!(map_crdt, key);
                 map_crdts_to_send.insert((*map_crdt, key));
+            }
+
+            for (_, set_crdt) in self.set_index.range(*range_rev) {
+                set_crdts_to_send.insert(*set_crdt);
             }
         }
 
@@ -590,11 +644,39 @@ impl OpLog {
             }
         }
 
+        // Serialize set operations, converting LV tags to RemoteVersions
+        let mut set_ops = Vec::new();
+        for crdt in set_crdts_to_send {
+            let crdt_name = self.crdt_name_to_remote(crdt);
+            let info = &self.sets[&crdt];
+            for r in diff_rev.iter() {
+                for (lv, op) in info.ops_in_range(r.start, r.end) {
+                    let rv = self.cg.agent_assignment.local_to_remote_version(*lv);
+                    // Convert StoredSetOp to SerializedSetOp
+                    let serialized_op = match op {
+                        StoredSetOp::Add { value, tag: _ } => {
+                            // Tag is implicit (same as rv)
+                            SerializedSetOp::Add { value: value.clone() }
+                        }
+                        StoredSetOp::Remove { value, tags } => {
+                            // Convert LV tags to RemoteVersions
+                            let remote_tags: Vec<_> = tags.iter()
+                                .map(|tag| self.cg.agent_assignment.local_to_remote_version(*tag).to_owned())
+                                .collect();
+                            SerializedSetOp::Remove { value: value.clone(), tags: remote_tags }
+                        }
+                    };
+                    set_ops.push((crdt_name, rv, serialized_op));
+                }
+            }
+        }
+
         SerializedOps {
             cg_changes,
             map_ops,
             text_ops,
             text_context,
+            set_ops,
         }
     }
 
@@ -641,6 +723,27 @@ impl OpLog {
 
             let op = op_metrics.to_operation(&changes.text_context);
             self.remote_text_op(crdt_id, v_range, op);
+        }
+
+        // Deserialize set operations, converting RemoteVersion tags back to LVs
+        for (crdt_r_name, rv, set_op) in changes.set_ops {
+            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
+            if new_range.contains(lv) {
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
+                match set_op {
+                    SerializedSetOp::Add { value } => {
+                        // The tag for an Add is the operation's LV
+                        self.remote_set_add(crdt_id, lv, value, lv);
+                    }
+                    SerializedSetOp::Remove { value, tags } => {
+                        // Convert RemoteVersion tags back to local LVs
+                        let local_tags: Vec<_> = tags.iter()
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(RemoteVersion::from(rv)))
+                            .collect();
+                        self.remote_set_remove(crdt_id, lv, value, local_tags);
+                    }
+                }
+            }
         }
 
         Ok(new_range)
@@ -891,6 +994,111 @@ mod tests {
         // Verify checkout_set works (returns empty set initially)
         let set_contents = oplog.checkout_set(tags_set);
         assert!(set_contents.is_empty());
+    }
+
+    #[test]
+    fn set_replication_basic() {
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+
+        // Create a set and add elements
+        let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, tags, Primitive::Str("rust".into()));
+        oplog1.local_set_add(alice, tags, Primitive::Str("crdt".into()));
+        oplog1.local_set_add(alice, tags, Primitive::I64(42));
+
+        // Verify local state
+        let set1 = oplog1.checkout_set(tags);
+        assert_eq!(set1.len(), 3);
+        assert!(set1.contains(&Primitive::Str("rust".into())));
+        assert!(set1.contains(&Primitive::Str("crdt".into())));
+        assert!(set1.contains(&Primitive::I64(42)));
+
+        // Replicate to oplog2
+        let changes = oplog1.ops_since(&[]);
+        oplog2.merge_ops(changes).unwrap();
+
+        // Verify replicated state
+        oplog2.dbg_check(true);
+        let (_, tags2) = oplog2.crdt_at_path(&["tags"]);
+        let set2 = oplog2.checkout_set(tags2);
+        assert_eq!(set1, set2);
+    }
+
+    #[test]
+    fn set_replication_with_removes() {
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+
+        // Create a set, add elements, then remove some
+        let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, tags, Primitive::Str("a".into()));
+        oplog1.local_set_add(alice, tags, Primitive::Str("b".into()));
+        oplog1.local_set_add(alice, tags, Primitive::Str("c".into()));
+
+        // Remove "b"
+        oplog1.local_set_remove(alice, tags, Primitive::Str("b".into()));
+
+        // Verify local state after remove
+        let set1 = oplog1.checkout_set(tags);
+        assert_eq!(set1.len(), 2);
+        assert!(set1.contains(&Primitive::Str("a".into())));
+        assert!(!set1.contains(&Primitive::Str("b".into())));
+        assert!(set1.contains(&Primitive::Str("c".into())));
+
+        // Replicate to oplog2
+        let changes = oplog1.ops_since(&[]);
+        oplog2.merge_ops(changes).unwrap();
+
+        // Verify replicated state matches
+        oplog2.dbg_check(true);
+        let (_, tags2) = oplog2.crdt_at_path(&["tags"]);
+        let set2 = oplog2.checkout_set(tags2);
+        assert_eq!(set1, set2);
+    }
+
+    #[test]
+    fn set_concurrent_adds() {
+        let mut oplog1 = OpLog::new();
+        let mut oplog2 = OpLog::new();
+
+        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let bob = oplog2.cg.get_or_create_agent_id("bob");
+
+        // Alice creates a set
+        let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
+            CreateValue::NewCRDT(CRDTKind::Set));
+        oplog1.local_set_add(alice, tags, Primitive::Str("alice-tag".into()));
+
+        // Sync set creation to Bob before concurrent ops
+        oplog2.merge_ops(oplog1.ops_since(&[])).unwrap();
+        let (_, tags2) = oplog2.crdt_at_path(&["tags"]);
+
+        // Now make concurrent additions
+        oplog1.local_set_add(alice, tags, Primitive::Str("concurrent-a".into()));
+        oplog2.local_set_add(bob, tags2, Primitive::Str("concurrent-b".into()));
+
+        // Exchange changes
+        oplog1.merge_ops(oplog2.ops_since(&[])).unwrap();
+        oplog2.merge_ops(oplog1.ops_since(&[])).unwrap();
+
+        // Both should converge with all elements
+        oplog1.dbg_check(true);
+        oplog2.dbg_check(true);
+
+        let set1 = oplog1.checkout_set(tags);
+        let set2 = oplog2.checkout_set(tags2);
+        assert_eq!(set1, set2);
+        assert_eq!(set1.len(), 3);
+        assert!(set1.contains(&Primitive::Str("alice-tag".into())));
+        assert!(set1.contains(&Primitive::Str("concurrent-a".into())));
+        assert!(set1.contains(&Primitive::Str("concurrent-b".into())));
     }
 
     #[cfg(feature = "gen_test_data")]

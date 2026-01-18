@@ -209,6 +209,20 @@ pub enum StoredSetOp<T> {
     Remove { value: T, tags: Vec<AddTag> },
 }
 
+use crate::causalgraph::agent_assignment::remote_ids::RemoteVersionOwned;
+
+/// Serialized set operation for cross-peer replication.
+///
+/// Uses RemoteVersionOwned for tags so they can be converted between peers.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum SerializedSetOp<T> {
+    /// Add an element. The tag is implicit (same as the operation's version).
+    Add { value: T },
+    /// Remove specific tags for a value. Tags are RemoteVersions.
+    Remove { value: T, tags: Vec<RemoteVersionOwned> },
+}
+
 /// Information about a set stored in the OpLog.
 #[derive(Debug, Clone, Default)]
 pub struct SetInfo<T: Ord + Clone> {
@@ -273,6 +287,22 @@ impl<T: Ord + Clone> SetInfo<T> {
     /// Check if empty.
     pub fn is_empty(&self) -> bool {
         self.set.is_empty()
+    }
+
+    /// Get operations in a given LV range (for serialization).
+    pub fn ops_in_range(&self, start: LV, end: LV) -> impl Iterator<Item = &(LV, StoredSetOp<T>)> {
+        // Find the starting index via binary search
+        let start_idx = self.ops
+            .binary_search_by_key(&start, |(lv, _)| *lv)
+            .unwrap_or_else(|idx| idx);
+
+        self.ops[start_idx..].iter()
+            .take_while(move |(lv, _)| *lv < end)
+    }
+
+    /// Get all operations (for serialization).
+    pub fn all_ops(&self) -> &[(LV, StoredSetOp<T>)] {
+        &self.ops
     }
 }
 
