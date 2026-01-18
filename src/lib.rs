@@ -210,6 +210,7 @@ use crate::textinfo::TextInfo;
 
 pub mod list;
 pub mod register;
+pub mod map;
 
 #[doc(hidden)]
 pub mod rle;
