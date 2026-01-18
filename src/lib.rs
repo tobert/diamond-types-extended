@@ -209,6 +209,7 @@ use crate::textinfo::TextInfo;
 // use crate::list::internal_op::OperationInternal as TextOpInternal;
 
 pub mod list;
+pub mod register;
 
 #[doc(hidden)]
 pub mod rle;
