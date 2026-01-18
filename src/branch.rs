@@ -48,7 +48,7 @@ impl OpLog {
     }
 
     /// Get this register's state. This includes the current value and any other conflicting values.
-    fn get_state_for_register(&self, info: &RegisterInfo) -> RegisterState {
+    pub(crate) fn get_state_for_register(&self, info: &RegisterInfo) -> RegisterState {
         let (active_idx, other_idxes) = self.tie_break_mv(info);
 
         RegisterState {
@@ -101,6 +101,7 @@ impl OpLog {
             frontier: self.cg.version.clone(),
             maps: Default::default(),
             texts: Default::default(),
+            registers: Default::default(),
         };
 
         while let Some(crdt) = maps_to_copy.pop() {
@@ -117,7 +118,10 @@ impl OpLog {
                             // I could use recursion here but this avoids stack-smashing attacks.
                             maps_to_copy.push(*child_map);
                         }
-                        RegisterValue::OwnedCRDT(CRDTKind::Register, _) => { todo!() }
+                        RegisterValue::OwnedCRDT(CRDTKind::Register, reg_crdt) => {
+                            let reg_state = self.checkout_register(*reg_crdt);
+                            result.registers.insert(*reg_crdt, reg_state);
+                        }
                         RegisterValue::OwnedCRDT(CRDTKind::Collection, _) => { todo!() }
                         RegisterValue::OwnedCRDT(CRDTKind::Set, _set_crdt) => {
                             // OR-Set checkout will be implemented when sets are fully integrated
@@ -153,6 +157,7 @@ impl Branch {
             frontier: Default::default(),
             maps: BTreeMap::from([(ROOT_CRDT_ID, Default::default())]),
             texts: Default::default(),
+            registers: Default::default(),
         }
     }
 

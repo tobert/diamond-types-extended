@@ -28,8 +28,14 @@ impl Branch {
                 SimpleVal::Map(map)
             }
             CRDTKind::Register => {
-                // TODO
-                SimpleVal::Primitive(Primitive::Nil)
+                let state = self.registers.get(&key)
+                    .expect("Register not found in checkout");
+                match &state.value {
+                    RegisterValue::Primitive(p) => SimpleVal::Primitive(p.clone()),
+                    RegisterValue::OwnedCRDT(inner_kind, inner_key) => {
+                        self.simple_val_at(*inner_key, *inner_kind)
+                    }
+                }
             }
             CRDTKind::Collection => {
                 // todo!();

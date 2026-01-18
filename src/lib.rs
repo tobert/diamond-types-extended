@@ -411,8 +411,10 @@ pub struct OpLog {
     map_index: BTreeMap<LV, (LVKey, SmartString)>,
     text_index: BTreeMap<LV, LVKey>,
 
-    // TODO: Vec -> SmallVec.
-    // registers: BTreeMap<LVKey, RegisterInfo>,
+    /// Standalone registers (not inside maps).
+    registers: BTreeMap<LVKey, RegisterInfo>,
+    /// Index from operation LV to register CRDT ID.
+    register_index: BTreeMap<LV, LVKey>,
 
     // The set of CRDTs which have been deleted or superseded in the current version. This data is
     // pretty similar to the _index data, in that its mainly just useful for branches doing
@@ -428,17 +430,20 @@ pub struct Branch {
     // range.
     //
     // TODO: Replace BTreeMap with something more appropriate later.
-    // registers: BTreeMap<LVKey, SmallVec<LV, 2>>, // TODO.
     maps: BTreeMap<LVKey, BTreeMap<SmartString, RegisterState>>, // any objects.
     pub texts: BTreeMap<LVKey, JumpRopeBuf>,
+    /// Standalone registers (not inside maps).
+    pub registers: BTreeMap<LVKey, RegisterState>,
 }
 
 /// The register stores the specified value, but if conflicts_with is not empty, it has some
 /// conflicting concurrent values too. The `value` field will be consistent across all peers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct RegisterState {
-    value: RegisterValue,
-    conflicts_with: Vec<RegisterValue>,
+pub struct RegisterState {
+    /// The winning value according to LWW semantics.
+    pub value: RegisterValue,
+    /// Any concurrent values that lost the LWW tie-break.
+    pub conflicts_with: Vec<RegisterValue>,
 }
 
 #[derive(Debug, Clone)]

@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 
 use rle::{HasLength, SplitableSpanCtx};
 use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
-use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, RegisterInfo, RegisterValue, ROOT_CRDT_ID, SerializedOps, ValPair};
+use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, ValPair};
 use crate::encoding::bufparser::BufParser;
 use crate::encoding::cg_entry::{read_cg_entry_into_cg, write_cg_entry_iter};
 use crate::encoding::map::{ReadMap, WriteMap};
@@ -199,7 +199,9 @@ impl OpLog {
     fn create_child_crdt(&mut self, v: LV, kind: CRDTKind) {
         match kind {
             CRDTKind::Map => {}
-            CRDTKind::Register => {}
+            CRDTKind::Register => {
+                self.registers.entry(v).or_default();
+            }
             CRDTKind::Collection => {}
             CRDTKind::Set => {} // OR-Set storage will be added when integrated with OpLog
             CRDTKind::Text => {
@@ -393,6 +395,13 @@ impl OpLog {
         let mut result = JumpRopeBuf::new();
         info.merge_into(&mut result, &self.cg, &[], self.cg.version.as_ref());
         result
+    }
+
+    /// Checkout a standalone register, returning its current state including conflicts.
+    pub fn checkout_register(&self, crdt: LVKey) -> RegisterState {
+        let info = self.registers.get(&crdt)
+            .expect("Register CRDT not found");
+        self.get_state_for_register(info)
     }
 
     pub fn checkout_map(&self, crdt: LVKey) -> BTreeMap<SmartString, Box<DTValue>> {
