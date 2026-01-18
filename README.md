@@ -8,11 +8,16 @@
 
 [**🌐 Web browser package on npm (via WASM)**](https://www.npmjs.com/package/diamond-types-web)
 
-This repository contains a high performance rust CRDT for text editing. This is a special data type which supports concurrent editing of lists or strings
-(text documents) by multiple users in a P2P network without needing a
-centralized server.
+This repository contains high performance Rust CRDTs for collaborative applications. CRDTs (Conflict-free Replicated Data Types) allow concurrent editing by multiple users in a P2P network without needing a centralized server.
 
-This version of diamond types only supports plain text editing. Work is underway to add support for other JSON-style data types. See the `more_types` branch for details.
+## Supported CRDT Types
+
+- **Text** - High-performance sequence CRDT for collaborative text editing
+- **Map** - Key-value map with last-writer-wins (LWW) semantics per key
+- **Register** - Single-value LWW register for atomic values
+- **Set** - OR-Set (Observed-Remove Set) with add-wins semantics for concurrent add/remove
+
+All types can be nested: maps can contain registers, sets, text, or other maps. Operations are tracked in an append-only OpLog that enables efficient sync between peers.
 
 This project was initially created as a prototype to see how fast a well optimized CRDT could be made to go. The answer is really fast - faster than other similar libraries. This library is currently in the process of being expanded into a fast, feature rich CRDT in its own right.
 
