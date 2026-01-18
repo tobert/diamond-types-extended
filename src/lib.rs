@@ -253,7 +253,7 @@ pub type AgentId = u32;
 /// converted to RawVersions before being sent over the wire or saved to disk.
 pub type LV = usize;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Primitive {
@@ -416,6 +416,11 @@ pub struct OpLog {
     /// Index from operation LV to register CRDT ID.
     register_index: BTreeMap<LV, LVKey>,
 
+    /// OR-Sets storing Primitive values.
+    sets: BTreeMap<LVKey, set::SetInfo<Primitive>>,
+    /// Index from operation LV to set CRDT ID.
+    set_index: BTreeMap<LV, LVKey>,
+
     // The set of CRDTs which have been deleted or superseded in the current version. This data is
     // pretty similar to the _index data, in that its mainly just useful for branches doing
     // checkouts.
@@ -434,6 +439,8 @@ pub struct Branch {
     pub texts: BTreeMap<LVKey, JumpRopeBuf>,
     /// Standalone registers (not inside maps).
     pub registers: BTreeMap<LVKey, RegisterState>,
+    /// OR-Sets storing Primitive values.
+    pub sets: BTreeMap<LVKey, BTreeSet<Primitive>>,
 }
 
 /// The register stores the specified value, but if conflicts_with is not empty, it has some

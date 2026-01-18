@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use crate::{Branch, CRDTKind, LV, Primitive, RegisterValue, ROOT_CRDT_ID};
 use smartstring::alias::String as SmartString;
 
@@ -7,6 +7,7 @@ pub enum SimpleVal {
     Text(String),
     Map(BTreeMap<SmartString, Box<SimpleVal>>),
     Primitive(Primitive),
+    Set(BTreeSet<Primitive>),
 }
 
 impl Branch {
@@ -45,8 +46,9 @@ impl Branch {
                 SimpleVal::Text(self.texts.get(&key).unwrap().to_string())
             }
             CRDTKind::Set => {
-                // OR-Set checkout will be implemented when sets are fully integrated
-                SimpleVal::Primitive(Primitive::Nil)
+                let set_data = self.sets.get(&key)
+                    .expect("Set not found in checkout");
+                SimpleVal::Set(set_data.clone())
             }
         }
     }

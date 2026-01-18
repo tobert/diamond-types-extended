@@ -102,6 +102,7 @@ impl OpLog {
             maps: Default::default(),
             texts: Default::default(),
             registers: Default::default(),
+            sets: Default::default(),
         };
 
         while let Some(crdt) = maps_to_copy.pop() {
@@ -123,9 +124,9 @@ impl OpLog {
                             result.registers.insert(*reg_crdt, reg_state);
                         }
                         RegisterValue::OwnedCRDT(CRDTKind::Collection, _) => { todo!() }
-                        RegisterValue::OwnedCRDT(CRDTKind::Set, _set_crdt) => {
-                            // OR-Set checkout will be implemented when sets are fully integrated
-                            todo!("OR-Set checkout not yet implemented")
+                        RegisterValue::OwnedCRDT(CRDTKind::Set, set_crdt) => {
+                            let set_data = self.checkout_set(*set_crdt);
+                            result.sets.insert(*set_crdt, set_data);
                         }
                         RegisterValue::OwnedCRDT(CRDTKind::Text, text_crdt) => {
                             // Eventually (rich) text items might contain more embedded CRDTs. But for
@@ -158,6 +159,7 @@ impl Branch {
             maps: BTreeMap::from([(ROOT_CRDT_ID, Default::default())]),
             texts: Default::default(),
             registers: Default::default(),
+            sets: Default::default(),
         }
     }
 

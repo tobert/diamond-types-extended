@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 
 use rle::{HasLength, SplitableSpanCtx};
 use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
-use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, ValPair};
+use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, Primitive, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, ValPair};
 use crate::encoding::bufparser::BufParser;
 use crate::encoding::cg_entry::{read_cg_entry_into_cg, write_cg_entry_iter};
 use crate::encoding::map::{ReadMap, WriteMap};
@@ -203,7 +203,9 @@ impl OpLog {
                 self.registers.entry(v).or_default();
             }
             CRDTKind::Collection => {}
-            CRDTKind::Set => {} // OR-Set storage will be added when integrated with OpLog
+            CRDTKind::Set => {
+                self.sets.entry(v).or_insert_with(|| crate::set::SetInfo::new(v));
+            }
             CRDTKind::Text => {
                 self.texts.entry(v).or_default();
             }
@@ -402,6 +404,13 @@ impl OpLog {
         let info = self.registers.get(&crdt)
             .expect("Register CRDT not found");
         self.get_state_for_register(info)
+    }
+
+    /// Checkout an OR-Set, returning the current set of elements.
+    pub fn checkout_set(&self, crdt: LVKey) -> BTreeSet<Primitive> {
+        let info = self.sets.get(&crdt)
+            .expect("Set CRDT not found");
+        info.set.to_btree_set()
     }
 
     pub fn checkout_map(&self, crdt: LVKey) -> BTreeMap<SmartString, Box<DTValue>> {
