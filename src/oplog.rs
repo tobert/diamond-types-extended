@@ -319,6 +319,8 @@ impl OpLog {
                 }
             }
         }
+        // Sort to maintain supremum invariant (indices must be sorted)
+        new_sup.sort_unstable();
         entry.supremum = new_sup;
         self.recursive_mark_deleted_inner(to_delete);
     }
