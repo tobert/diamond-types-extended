@@ -503,8 +503,11 @@ pub struct SerializedOpsOwned {
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DTValue {
     Primitive(Primitive),
-    // Register(Box<DTValue>),
+    /// A register containing a value (which could be a nested CRDT).
+    Register(Box<DTValue>),
     Map(BTreeMap<SmartString, Box<DTValue>>),
     // Collection(BTreeMap<LV, Box<DTValue>>),
     Text(String),
+    /// An OR-Set containing primitive values.
+    Set(BTreeSet<Primitive>),
 }
