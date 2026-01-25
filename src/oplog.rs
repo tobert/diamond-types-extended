@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 
 use rle::{HasLength, SplitableSpanCtx};
 use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
-use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, Primitive, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, ValPair};
+use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, Primitive, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, SerializedOpsOwned, ValPair};
 use crate::encoding::bufparser::BufParser;
 use crate::encoding::cg_entry::{read_cg_entry_into_cg, write_cg_entry_iter};
 use crate::encoding::map::{ReadMap, WriteMap};
@@ -741,6 +741,67 @@ impl OpLog {
                         // Convert RemoteVersion tags back to local LVs
                         let local_tags: Vec<_> = tags.iter()
                             .map(|rv| self.cg.agent_assignment.remote_to_local_version(RemoteVersion::from(rv)))
+                            .collect();
+                        self.remote_set_remove(crdt_id, lv, value, local_tags);
+                    }
+                }
+            }
+        }
+
+        Ok(new_range)
+    }
+
+    /// Merge ops from an owned serialized ops struct (for cross-thread communication)
+    pub fn merge_ops_owned(&mut self, changes: SerializedOpsOwned) -> Result<DTRange, ParseError> {
+        let mut read_map = ReadMap::new();
+
+        let old_end = self.cg.len();
+
+        let mut buf = BufParser(&changes.cg_changes);
+        while !buf.is_empty() {
+            read_cg_entry_into_cg(&mut buf, true, &mut self.cg, &mut read_map)?;
+        }
+
+        let new_end = self.cg.len();
+        let new_range: DTRange = (old_end..new_end).into();
+
+        if new_range.is_empty() { return Ok(new_range); }
+
+        for (crdt_r_name, rv, key, val) in changes.map_ops {
+            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            if new_range.contains(lv) {
+                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                self.remote_map_set(crdt_id, lv, &key, val);
+            }
+        }
+
+        for (crdt_r_name, rv, mut op_metrics) in changes.text_ops {
+            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            let mut v_range: DTRange = (lv..lv + op_metrics.len()).into();
+
+            if v_range.end <= new_range.start { continue; }
+            else if v_range.start < new_range.start {
+                op_metrics.truncate_keeping_right_ctx(new_range.start - v_range.start, &changes.text_context);
+                v_range.start = new_range.start;
+            }
+
+            let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+
+            let op = op_metrics.to_operation(&changes.text_context);
+            self.remote_text_op(crdt_id, v_range, op);
+        }
+
+        for (crdt_r_name, rv, set_op) in changes.set_ops {
+            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            if new_range.contains(lv) {
+                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                match set_op {
+                    SerializedSetOp::Add { value } => {
+                        self.remote_set_add(crdt_id, lv, value, lv);
+                    }
+                    SerializedSetOp::Remove { value, tags } => {
+                        let local_tags: Vec<_> = tags.iter()
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(rv.into()))
                             .collect();
                         self.remote_set_remove(crdt_id, lv, value, local_tags);
                     }
