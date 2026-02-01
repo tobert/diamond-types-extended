@@ -16,7 +16,7 @@ use smallvec::{SmallVec, smallvec};
 use indicatif::ProgressBar;
 use std::io::{BufWriter, Write};
 
-use diamond_types::list::*;
+use facet::list::*;
 
 /// In the git repository for linux, there are commits (maybe just one commit?) with the same commit
 /// named twice in the parents list. Its this commit: 13e652800d1644dfedcd0d59ac95ef0beb7f3165

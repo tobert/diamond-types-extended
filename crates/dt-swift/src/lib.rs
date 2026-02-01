@@ -1,6 +1,6 @@
-use diamond_types::AgentId;
-use diamond_types::list::{ListCRDT as InnerListCRDT};
-use diamond_types::list::encoding::ENCODE_FULL;
+use facet::AgentId;
+use facet::list::{ListCRDT as InnerListCRDT};
+use facet::list::encoding::ENCODE_FULL;
 use rand::{distributions::Alphanumeric, Rng};
 
 #[swift_bridge::bridge]

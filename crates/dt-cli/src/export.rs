@@ -22,12 +22,12 @@ use serde::ser::SerializeTupleStruct;
 use smallvec::{SmallVec, smallvec};
 use smartstring::alias::String as SmartString;
 
-use diamond_types::{AgentId, DTRange, HasLength};
-use diamond_types::causalgraph::agent_assignment::AgentAssignment;
-use diamond_types::causalgraph::agent_assignment::remote_ids::RemoteVersionSpan;
-use diamond_types::list::ListOpLog;
-use diamond_types::list::operation::{ListOpKind, TextOperation};
-use diamond_types::rle::{KVPair, RleSpanHelpers, RleVec};
+use facet::{AgentId, DTRange, HasLength};
+use facet::causalgraph::agent_assignment::AgentAssignment;
+use facet::causalgraph::agent_assignment::remote_ids::RemoteVersionSpan;
+use facet::list::ListOpLog;
+use facet::list::operation::{ListOpKind, TextOperation};
+use facet::rle::{KVPair, RleSpanHelpers, RleVec};
 use rle::{AppendRle, MergableSpan, MergeableIterator, RleRun, SplitableSpan};
 use rle::take_max_iter::TakeMaxFns;
 

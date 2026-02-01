@@ -1,7 +1,8 @@
 [package]
-name = "diamond-types"
-version = "2.0.0"
+name = "facet"
+version = "0.1.0"
 edition = "2021"
+authors = ["Amy Tobey <amy@tobert.org>"]
 exclude = [
     ".idea", ".vscode",
     "vis", "wiki", "js",
@@ -9,7 +10,10 @@ exclude = [
     ".github"
 ]
 license = "ISC"
-description = "The world's fastest text CRDT"
+description = "Unified CRDT library with ergonomic API - fork of diamond-types"
+repository = "https://github.com/tobert/facet"
+keywords = ["crdt", "collaborative", "sync", "distributed"]
+categories = ["data-structures", "concurrency"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

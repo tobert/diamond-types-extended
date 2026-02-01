@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use std::env;
-use diamond_types::list::{ListOpLog, encoding::EncodeOptions};
+use facet::list::{ListOpLog, encoding::EncodeOptions};
 use rle::zip::rle_zip;
 
 fn print_stats_for_file(name: &str) {

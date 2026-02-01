@@ -15,5 +15,5 @@ swift-bridge-build = "0.1.35"
 
 [dependencies]
 swift-bridge = "0.1.35"
-diamond-types = { path = "../..", features = ["serde", "wchar_conversion"] }
+facet = { path = "../..", features = ["serde", "wchar_conversion"] }
 rand = { version = "0.8.5" }

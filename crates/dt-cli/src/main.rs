@@ -17,10 +17,10 @@ use rand::{Rng, RngCore};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use similar::utils::TextDiffRemapper;
-use diamond_types::causalgraph::agent_assignment::remote_ids::RemoteVersionOwned;
-use diamond_types::Frontier;
-use diamond_types::list::{gen_oplog, ListBranch, ListOpLog};
-use diamond_types::list::encoding::{ENCODE_FULL, EncodeOptions};
+use facet::causalgraph::agent_assignment::remote_ids::RemoteVersionOwned;
+use facet::Frontier;
+use facet::list::{gen_oplog, ListBranch, ListOpLog};
+use facet::list::encoding::{ENCODE_FULL, EncodeOptions};
 use crate::dot::{generate_svg_with_dot};
 use crate::export::{check_trace_invariants, export_full_to_json, export_trace_to_json, export_transformed};
 

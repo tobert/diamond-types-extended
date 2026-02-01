@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use criterion::{BenchmarkId, Criterion};
 use flate2::bufread::GzDecoder;
-use diamond_types::IndexTreeTrace;
+use facet::IndexTreeTrace;
 
 const DATASETS: &[&str] = &["node_nodecc", "git-makefile", "friendsforever", "clownschool"];
 

@@ -10,8 +10,8 @@ use std::env;
 use criterion::{black_box, Criterion, BenchmarkId, Throughput};
 use jumprope::JumpRope;
 use crdt_testdata::{load_testing_data, TestData};
-use diamond_types::list::{ListCRDT, ListOpLog};
-use diamond_types::list::encoding::*;
+use facet::list::{ListCRDT, ListOpLog};
+use facet::list::encoding::*;
 use crate::utils::*;
 
 fn testing_data(name: &str) -> TestData {

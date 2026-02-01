@@ -14,3 +14,9 @@ generated
 
 db.dtjson
 .vscode
+
+# Test artifacts
+*.dts
+*.cg
+*.wal
+scripts/

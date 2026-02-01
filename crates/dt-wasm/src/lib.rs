@@ -3,10 +3,10 @@ mod utils;
 use wasm_bindgen::prelude::*;
 // use serde_wasm_bindgen::Serializer;
 // use serde::{Serialize};
-use diamond_types::{AgentId, LV};
-use diamond_types::list::{ListBranch as DTBranch, ListCRDT, ListOpLog as DTOpLog};
-use diamond_types::list::encoding::{ENCODE_FULL, ENCODE_PATCH};
-use diamond_types::list::operation::TextOperation;
+use facet::{AgentId, LV};
+use facet::list::{ListBranch as DTBranch, ListCRDT, ListOpLog as DTOpLog};
+use facet::list::encoding::{ENCODE_FULL, ENCODE_PATCH};
+use facet::list::operation::TextOperation;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.

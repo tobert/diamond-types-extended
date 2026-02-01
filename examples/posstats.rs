@@ -10,13 +10,13 @@
 // use std::fs::File;
 use std::hint::black_box;
 use crdt_testdata::{load_testing_data, TestPatch, TestTxn};
-use diamond_types::list::*;
+use facet::list::*;
 
 #[cfg(feature = "memusage")]
 use trace_alloc::*;
 #[cfg(feature = "memusage")]
 use humansize::{DECIMAL, format_size};
-use diamond_types::list::encoding::EncodeOptions;
+use facet::list::encoding::EncodeOptions;
 
 pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
     let id = doc.get_or_create_agent_id("jeremy");

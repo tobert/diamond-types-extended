@@ -1,63 +1,103 @@
-# Diamond Types
+# Facet
 
-[**📦 Cargo package**](https://crates.io/crates/diamond-types)
+High-performance CRDTs (Conflict-free Replicated Data Types) for collaborative applications.
 
-[**📖 Documentation on docs.rs**](https://docs.rs/diamond-types/latest/diamond_types/)
+Facet is a fork of [diamond-types](https://github.com/josephg/diamond-types) with extended types and a unified API.
 
-[**🇳 NodeJS package on npm (via WASM)**](https://www.npmjs.com/package/diamond-types-node)
+## Features
 
-[**🌐 Web browser package on npm (via WASM)**](https://www.npmjs.com/package/diamond-types-web)
+- **Map** - Key-value container with LWW (Last-Writer-Wins) registers per key
+- **Text** - Sequence CRDT for collaborative text editing
+- **Set** - OR-Set (Observed-Remove) with add-wins semantics
+- **Register** - Single-value LWW container
+- **Nesting** - All types can be nested within Maps
+- **Replication** - Efficient sync between peers
 
-This repository contains high performance Rust CRDTs for collaborative applications. CRDTs (Conflict-free Replicated Data Types) allow concurrent editing by multiple users in a P2P network without needing a centralized server.
+## Quick Start
 
-## Supported CRDT Types
+```rust
+use facet::{Document, Value};
 
-- **Text** - High-performance sequence CRDT for collaborative text editing
-- **Map** - Key-value map with last-writer-wins (LWW) semantics per key
-- **Register** - Single-value LWW register for atomic values
-- **Set** - OR-Set (Observed-Remove Set) with add-wins semantics for concurrent add/remove
+// Create a document
+let mut doc = Document::new();
+let alice = doc.get_or_create_agent("alice");
 
-All types can be nested: maps can contain registers, sets, text, or other maps. Operations are tracked in an append-only OpLog that enables efficient sync between peers.
+// All mutations happen in transactions
+doc.transact(alice, |tx| {
+    tx.root().set("title", "My Document");
+    tx.root().set("count", 42);
+    tx.root().create_text("content");
+});
 
-This project was initially created as a prototype to see how fast a well optimized CRDT could be made to go. The answer is really fast - faster than other similar libraries. This library is currently in the process of being expanded into a fast, feature rich CRDT in its own right.
+// Work with nested text
+doc.transact(alice, |tx| {
+    if let Some(mut text) = tx.get_text_mut(&["content"]) {
+        text.insert(0, "Hello, world!");
+    }
+});
 
-For detail about how to *use* diamond types, see the [package level documentation at docs.rs](https://docs.rs/diamond-types/latest/diamond_types/).
+// Read values directly
+assert_eq!(doc.root().get("title").unwrap().as_str(), Some("My Document"));
+assert_eq!(doc.root().get_text("content").unwrap().content(), "Hello, world!");
+```
 
-Note the package published to cargo is quite out of date, both in terms of API and performance.
+## Replication
 
-For much more detail about how this library *works*, see:
+```rust
+use facet::Document;
 
-- The talk I gave on this library at a recent [braid user meetings](https://braid.org/meeting-14) or
-- [INTERNALS.md](INTERNALS.md) in this repository.
-- [This blog post on making diamond types 5000x faster than competing CRDT implementations](https://josephg.com/blog/crdts-go-brrr/)
-  - And since that blog post came out, performance has increased another 10-80x (!).
+let mut doc_a = Document::new();
+let mut doc_b = Document::new();
 
-As well as being lightning fast, this library is also designed to be interoperable with positional updates. This allows simple peers to interact with the data structure via operational transform.
+let alice = doc_a.get_or_create_agent("alice");
+let bob = doc_b.get_or_create_agent("bob");
 
+// Alice makes changes
+doc_a.transact(alice, |tx| {
+    tx.root().set("from_alice", "hello!");
+});
 
-## Internals
+// Sync to Bob
+let ops = doc_a.ops_since(&[]).into();
+doc_b.merge_ops(ops).unwrap();
 
-Each client / device has a unique ID. Each character typed or deleted on
-each device is assigned an incrementing sequence number (starting at 0).
-Each character in the document can thus be uniquely identified by the
-tuple of `(client ID, sequence number)`. This allows any location in the
-document to be uniquely named.
+// Bob now has Alice's changes
+assert!(doc_b.root().contains_key("from_alice"));
+```
 
-The internal data structures are designed to optimize two main operations:
+## Conflict Resolution
 
-- Text edit to CRDT operation (Eg, "user A inserts at position 100" -> "user A
-  seq 1000 inserts at (B, 50)")
-- CRDT operation to text edit ("user A
-  seq 1000 inserts at (B, 50)" -> "insert at document position 100")
+Facet uses deterministic conflict resolution:
 
-Much more detail on the internal data structures used is in [INTERNALS.md](INTERNALS.md).
+- **Maps**: LWW (Last-Writer-Wins) based on `(lamport_timestamp, agent_id)` ordering
+- **Sets**: Add-wins semantics (concurrent add + remove = add wins)
+- **Text**: Interleaving based on operation ordering
 
+You can detect and handle conflicts explicitly:
 
-# LICENSE
+```rust
+let conflicted = doc.root().get_conflicted("key").unwrap();
+if conflicted.has_conflicts() {
+    println!("Winner: {:?}", conflicted.value);
+    println!("Losers: {:?}", conflicted.conflicts);
+}
+```
 
-This code is published under the ISC license.
+## Performance
 
+Facet inherits diamond-types' exceptional performance:
+- Run-length encoded operation storage
+- Optimized causal graph tracking
+- The "egwalker" merge algorithm
 
-# Acknowledgements
+See the original [diamond-types blog post](https://josephg.com/blog/crdts-go-brrr/) for benchmarks.
 
-This work has been made possible by funding from the [Invisible College](https://invisible.college/).
+## Attribution
+
+Facet is built on diamond-types by Joseph Gentle ([@josephg](https://github.com/josephg)).
+
+See [ATTRIBUTION.md](ATTRIBUTION.md) for full credits.
+
+## License
+
+ISC License - see [LICENSE](LICENSE) for details.

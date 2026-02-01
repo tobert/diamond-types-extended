@@ -1,6 +1,6 @@
-use diamond_types::list::*;
+use facet::list::*;
 use crdt_testdata::{TestTxn, TestPatch};
-use diamond_types::list::operation::TextOperation;
+use facet::list::operation::TextOperation;
 use rle::AppendRle;
 
 #[inline(always)]

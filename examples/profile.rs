@@ -1,6 +1,6 @@
 use std::hint::black_box;
 use crdt_testdata::{load_testing_data, TestPatch, TestTxn};
-use diamond_types::list::{ListCRDT, ListOpLog};
+use facet::list::{ListCRDT, ListOpLog};
 
 pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
     let id = doc.get_or_create_agent_id("jeremy");
