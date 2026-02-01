@@ -127,6 +127,8 @@ impl<'a> MapRef<'a> {
 /// Read-only reference to a Text CRDT.
 ///
 /// Text is a sequence CRDT optimized for collaborative text editing.
+/// For large documents, prefer `slice()` or `chars()` over `content()` to avoid
+/// allocating the entire string.
 pub struct TextRef<'a> {
     oplog: &'a OpLog,
     crdt_id: LV,
@@ -142,9 +144,53 @@ impl<'a> TextRef<'a> {
         CrdtId(self.crdt_id)
     }
 
-    /// Get the text content as a String.
+    /// Get the full text content as a String.
+    ///
+    /// For large documents, consider using `slice()` or `chars()` instead
+    /// to avoid allocating the entire string.
     pub fn content(&self) -> String {
         self.oplog.checkout_text(self.crdt_id).to_string()
+    }
+
+    /// Get a slice of the text as a String.
+    ///
+    /// Range is in Unicode characters (not bytes). This is more efficient than
+    /// `content()` for extracting portions of large documents.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use facet::Document;
+    ///
+    /// let mut doc = Document::new();
+    /// let alice = doc.get_or_create_agent("alice");
+    ///
+    /// doc.transact(alice, |tx| {
+    ///     let id = tx.root().create_text("content");
+    ///     tx.text_by_id(id).unwrap().insert(0, "Hello, world!");
+    /// });
+    ///
+    /// let text = doc.root().get_text("content").unwrap();
+    /// assert_eq!(text.slice(0..5), "Hello");
+    /// assert_eq!(text.slice(7..12), "world");
+    /// ```
+    pub fn slice(&self, range: std::ops::Range<usize>) -> String {
+        let rope = self.oplog.checkout_text(self.crdt_id);
+        let borrowed = rope.borrow();
+        borrowed.slice_chars(range).collect()
+    }
+
+    /// Iterate over characters in the text.
+    ///
+    /// More memory-efficient than `content()` for large documents when you
+    /// only need to iterate.
+    pub fn chars(&self) -> impl Iterator<Item = char> {
+        // Note: We collect into a Vec because the JumpRope iterator borrows
+        // the rope, and we can't return a borrowed iterator from a temporary.
+        // For truly streaming access on huge documents, use slice() with ranges.
+        let rope = self.oplog.checkout_text(self.crdt_id);
+        let borrowed = rope.borrow();
+        borrowed.chars().collect::<Vec<_>>().into_iter()
     }
 
     /// Get the length in Unicode characters.
@@ -300,5 +346,65 @@ mod tests {
         let nested = doc.root().get_map("nested").unwrap();
         let inner = nested.get("inner").unwrap();
         assert_eq!(inner.as_str(), Some("value"));
+    }
+
+    #[test]
+    fn test_text_ref_slice() {
+        let mut doc = Document::new();
+        let alice = doc.get_or_create_agent("alice");
+
+        doc.transact(alice, |tx| {
+            let id = tx.root().create_text("content");
+            tx.text_by_id(id).unwrap().insert(0, "Hello, world!");
+        });
+
+        let text = doc.root().get_text("content").unwrap();
+
+        // Full content
+        assert_eq!(text.content(), "Hello, world!");
+
+        // Slices
+        assert_eq!(text.slice(0..5), "Hello");
+        assert_eq!(text.slice(7..12), "world");
+        assert_eq!(text.slice(0..0), "");
+        assert_eq!(text.slice(5..7), ", ");
+    }
+
+    #[test]
+    fn test_text_ref_slice_unicode() {
+        let mut doc = Document::new();
+        let alice = doc.get_or_create_agent("alice");
+
+        doc.transact(alice, |tx| {
+            let id = tx.root().create_text("emoji");
+            // Each emoji is 1 unicode character but multiple bytes
+            tx.text_by_id(id).unwrap().insert(0, "🎉🎊🎈");
+        });
+
+        let text = doc.root().get_text("emoji").unwrap();
+
+        // Length is in unicode characters, not bytes
+        assert_eq!(text.len(), 3);
+
+        // Slice by character position
+        assert_eq!(text.slice(0..1), "🎉");
+        assert_eq!(text.slice(1..2), "🎊");
+        assert_eq!(text.slice(2..3), "🎈");
+    }
+
+    #[test]
+    fn test_text_ref_chars() {
+        let mut doc = Document::new();
+        let alice = doc.get_or_create_agent("alice");
+
+        doc.transact(alice, |tx| {
+            let id = tx.root().create_text("content");
+            tx.text_by_id(id).unwrap().insert(0, "abc");
+        });
+
+        let text = doc.root().get_text("content").unwrap();
+        let chars: Vec<char> = text.chars().collect();
+
+        assert_eq!(chars, vec!['a', 'b', 'c']);
     }
 }

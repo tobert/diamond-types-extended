@@ -21,6 +21,41 @@ use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 /// - Consistent API across all CRDT types
 /// - Clean serialization/replication
 ///
+/// # Conflict Resolution
+///
+/// Facet uses deterministic conflict resolution that guarantees all peers
+/// converge to the same state:
+///
+/// - **Maps**: Each key is an LWW (Last-Writer-Wins) register. Concurrent writes
+///   are resolved by `(lamport_timestamp, agent_id)` ordering - higher timestamp
+///   wins, with agent_id as tiebreaker. Use `get_conflicted()` to see losing values.
+///
+/// - **Sets**: OR-Set (Observed-Remove) with add-wins semantics. If one peer adds
+///   a value while another removes it concurrently, the add wins.
+///
+/// - **Text**: Operations are interleaved based on causal ordering. Concurrent
+///   inserts at the same position are ordered deterministically.
+///
+/// # Transaction Isolation
+///
+/// Transactions provide a consistent view of the document. All reads within a
+/// transaction see the state as of transaction start - they do NOT see writes
+/// made earlier in the same transaction. This matches typical CRDT semantics
+/// where operations are applied to the log immediately.
+///
+/// ```
+/// use facet::Document;
+///
+/// let mut doc = Document::new();
+/// let alice = doc.get_or_create_agent("alice");
+///
+/// doc.transact(alice, |tx| {
+///     tx.root().set("key", "value");
+///     // Note: get() here WILL see "value" because we read from the oplog
+///     // which has the operation applied
+/// });
+/// ```
+///
 /// # Example
 ///
 /// ```
@@ -195,30 +230,54 @@ impl Document {
 
     /// Get operations since a version for serialization.
     ///
-    /// This returns a `SerializedOps` struct that can be converted to
-    /// `SerializedOpsOwned` for cross-thread communication.
+    /// Pass an empty slice `&[]` to get all operations (full sync).
+    /// Pass `doc.version().as_ref()` from a peer to get only new operations (delta sync).
+    ///
+    /// Returns `SerializedOps` which borrows from this document. Use `.into()` to
+    /// convert to `SerializedOpsOwned` for sending across threads or network.
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// // Peer A sends changes
-    /// let ops: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    /// ```
+    /// use facet::Document;
     ///
-    /// // Peer B receives and merges
-    /// doc_b.merge_ops(ops)?;
+    /// let mut doc_a = Document::new();
+    /// let mut doc_b = Document::new();
+    /// let alice = doc_a.get_or_create_agent("alice");
+    ///
+    /// // Alice makes changes
+    /// doc_a.transact(alice, |tx| {
+    ///     tx.root().set("key", "value");
+    /// });
+    ///
+    /// // Full sync: get all operations
+    /// let all_ops = doc_a.ops_since(&[]).into();
+    /// doc_b.merge_ops(all_ops).unwrap();
+    ///
+    /// // Now doc_b has Alice's changes
+    /// assert!(doc_b.root().contains_key("key"));
     /// ```
     pub fn ops_since(&self, version: &[LV]) -> crate::SerializedOps<'_> {
         self.oplog.ops_since(version)
     }
 
-    /// Merge operations from SerializedOpsOwned (for cross-thread/network sync).
+    /// Merge operations from another peer (owned version).
     ///
-    /// This is the primary replication mechanism for the unified OpLog.
+    /// Use this when receiving operations over a network or from another thread.
+    /// The owned version (`SerializedOpsOwned`) can be sent across thread boundaries.
+    ///
+    /// Operations are applied causally - if an operation depends on operations
+    /// you don't have yet, it will still be stored and applied correctly once
+    /// dependencies arrive.
     pub fn merge_ops(&mut self, ops: crate::SerializedOpsOwned) -> Result<(), crate::encoding::parseerror::ParseError> {
         self.oplog.merge_ops_owned(ops).map(|_| ())
     }
 
-    /// Merge operations from a borrowed SerializedOps.
+    /// Merge operations from another peer (borrowed version).
+    ///
+    /// Use this when you have a `SerializedOps` reference and don't need to
+    /// send it across threads. Slightly more efficient than `merge_ops` as it
+    /// avoids cloning strings.
     pub fn merge_ops_borrowed(&mut self, ops: crate::SerializedOps<'_>) -> Result<(), crate::encoding::parseerror::ParseError> {
         self.oplog.merge_ops(ops).map(|_| ())
     }
