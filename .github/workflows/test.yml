@@ -10,14 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - run: cargo test
-      - run: cargo test -p dt-cli -p rle -p dt-wasm -p dt-swift
+      - run: cargo test -p rle -p crdt-testdata

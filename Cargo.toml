@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Amy Tobey <amy@tobert.org>"]
 exclude = [
-    ".idea", ".vscode",
-    "vis", "wiki", "js",
-    "benchmark_data", "test_data",
+    ".idea",
+    "test_data",
     ".github"
 ]
 license = "ISC"
@@ -92,16 +91,6 @@ lto = true
 codegen-units = 1
 #opt-level = "s"
 panic = "abort"
-
-[profile.release.package.dt-wasm]
-opt-level = 2
-#opt-level = "s"
-#debugging = true
-
-[profile.release.package.dt-cli]
-opt-level = "s"
-#lto = false
-strip = true
 
 [profile.release.package.bench]
 codegen-units = 1
