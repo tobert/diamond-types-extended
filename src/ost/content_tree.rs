@@ -1795,8 +1795,8 @@ mod test {
         }
     }
 
-    fn fuzz(seed: u64, mut verbose: bool) {
-        verbose = verbose; // suppress mut warning.
+    fn fuzz(seed: u64, verbose: bool) {
+        let _ = verbose; // suppress unused warning
         let mut rng = SmallRng::seed_from_u64(seed);
         let mut tree = ContentTree::<TestRange>::new();
 
