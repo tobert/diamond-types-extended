@@ -542,28 +542,4 @@ mod test {
         assert_eq!(cg, cg2);
         cg2.dbg_check(true);
     }
-
-    #[test]
-    #[ignore] // requires benchmark_data/node_nodecc.dt which was removed
-    fn write_node_nodecc() {
-        use crate::list::ListOpLog;
-
-        let mut bytes = vec![];
-        File::open("benchmark_data/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        let o = ListOpLog::load_from(&bytes).unwrap();
-
-        let cg = o.cg;
-
-        drop(remove_file("node_nodecc.cg"));
-        let (_, mut cgs) = CGStorage::open("node_nodecc.cg").unwrap();
-        cgs.save_missing(&cg).unwrap();
-        drop(cgs);
-
-        // Open it back up again and check the contents match.
-        let (cg2, _) = CGStorage::open("node_nodecc.cg").unwrap();
-        // dbg!(cg2);
-
-        assert_eq!(cg, cg2);
-        cg2.dbg_check(true);
-    }
 }
