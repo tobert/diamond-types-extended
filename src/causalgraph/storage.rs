@@ -544,6 +544,7 @@ mod test {
     }
 
     #[test]
+    #[ignore] // requires benchmark_data/node_nodecc.dt which was removed
     fn write_node_nodecc() {
         use crate::list::ListOpLog;
 
