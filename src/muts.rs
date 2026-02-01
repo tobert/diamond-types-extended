@@ -36,13 +36,16 @@ impl<'a> MapMut<'a> {
 
     // ============ Write operations ============
 
-    /// Set a key to a value.
+    /// Set a key to a primitive value.
     ///
     /// The value can be any type that implements `Into<Value>`:
     /// - Primitives: `bool`, `i64`, `i32`, `String`, `&str`
     /// - Nil: `()`
     ///
-    /// For nested CRDTs, use `create_map`, `create_text`, `create_set`, or `create_register`.
+    /// # Panics
+    ///
+    /// Panics if the value is a CRDT reference (Map, Text, Set, Register).
+    /// Use `create_map`, `create_text`, `create_set`, or `create_register` instead.
     pub fn set(&mut self, key: &str, value: impl Into<Value>) {
         let value: Value = value.into();
         let create_value = match value {
@@ -50,17 +53,21 @@ impl<'a> MapMut<'a> {
             Value::Bool(b) => CreateValue::Primitive(Primitive::Bool(b)),
             Value::Int(n) => CreateValue::Primitive(Primitive::I64(n)),
             Value::Str(s) => CreateValue::Primitive(Primitive::Str(s.into())),
-            // For CRDT values, we can't "set" them - use create_* methods instead
-            _ => return,
+            Value::Map(_) | Value::Text(_) | Value::Set(_) | Value::Register(_) => {
+                panic!("Cannot set CRDT reference directly. Use create_map/text/set/register instead.");
+            }
         };
         self.oplog.local_map_set(self.agent, self.crdt_id, key, create_value);
     }
 
-    /// Delete a key from the map.
+    /// Set a key to nil (tombstone).
     ///
-    /// Note: In CRDT semantics, this doesn't truly delete - it just sets to nil.
-    /// The key will still appear in iterations until compaction.
-    pub fn delete(&mut self, key: &str) {
+    /// In CRDT semantics, this creates a tombstone - the key still exists but
+    /// has a nil value. Use `get()` to check if a value is nil, or use
+    /// `get_conflicted()` to see if there are concurrent non-nil values.
+    ///
+    /// Note: `contains_key()` will still return true after this operation.
+    pub fn set_nil(&mut self, key: &str) {
         self.oplog.local_map_set(
             self.agent,
             self.crdt_id,
@@ -210,11 +217,16 @@ impl<'a> SetMut<'a> {
         CrdtId(self.crdt_id)
     }
 
-    /// Add a value to the set.
+    /// Add a primitive value to the set.
     ///
-    /// Only primitive values can be added to sets in v0.1.
+    /// # Panics
+    ///
+    /// Panics if the value is a CRDT reference. Sets only support primitive values.
     pub fn add(&mut self, value: impl Into<Value>) {
         let value: Value = value.into();
+        if value.is_crdt() {
+            panic!("Sets only support primitive values, not CRDT references.");
+        }
         let primitive: Primitive = value.into();
         self.oplog.local_set_add(self.agent, self.crdt_id, primitive);
     }
@@ -229,11 +241,23 @@ impl<'a> SetMut<'a> {
         self.oplog.local_set_add(self.agent, self.crdt_id, Primitive::I64(n));
     }
 
-    /// Remove a value from the set.
+    /// Add a boolean to the set.
+    pub fn add_bool(&mut self, b: bool) {
+        self.oplog.local_set_add(self.agent, self.crdt_id, Primitive::Bool(b));
+    }
+
+    /// Remove a primitive value from the set.
     ///
     /// With OR-Set semantics, this removes all observed instances of the value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is a CRDT reference.
     pub fn remove(&mut self, value: impl Into<Value>) {
         let value: Value = value.into();
+        if value.is_crdt() {
+            panic!("Sets only support primitive values, not CRDT references.");
+        }
         let primitive: Primitive = value.into();
         self.oplog.local_set_remove(self.agent, self.crdt_id, primitive);
     }
@@ -249,14 +273,13 @@ impl<'a> SetMut<'a> {
     }
 }
 
-/// Mutable reference to a Register CRDT.
+/// Mutable reference to a Register CRDT (not yet implemented).
 ///
-/// Note: In v0.1, standalone registers are primarily accessed through map keys.
+/// In v0.1, standalone registers are accessed through map keys.
 /// Each map key is effectively an LWW register. Use `MapMut::set()` to update
 /// register values.
-///
-/// Obtained through `Transaction::get_register_mut()` or `Transaction::register_by_id()`.
-pub struct RegisterMut<'a> {
+// Hidden from public API until standalone register mutation is implemented
+pub(crate) struct RegisterMut<'a> {
     #[allow(dead_code)]
     oplog: &'a mut OpLog,
     #[allow(dead_code)]

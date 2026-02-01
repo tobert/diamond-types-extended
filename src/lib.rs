@@ -98,7 +98,7 @@ mod muts;
 pub use value::{Value, CrdtId, Conflicted};
 pub use document::{Document, Transaction};
 pub use refs::{MapRef, TextRef, SetRef, RegisterRef};
-pub use muts::{MapMut, TextMut, SetMut, RegisterMut};
+pub use muts::{MapMut, TextMut, SetMut};
 
 // ============ Original diamond-types modules ============
 pub mod list;

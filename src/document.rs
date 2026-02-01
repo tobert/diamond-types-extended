@@ -99,16 +99,32 @@ impl Document {
     ///
     /// Path elements are keys in nested maps starting from root.
     pub fn get_map(&self, path: &[&str]) -> Option<MapRef<'_>> {
-        let mut crdt_id = ROOT_CRDT_ID;
-        for key in path {
-            let value = self.oplog.checkout_at_path_nc(&[key])?;
-            if let RegisterValue::OwnedCRDT(CRDTKind::Map, id) = value {
-                crdt_id = id;
-            } else {
-                return None;
-            }
+        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        if kind == CRDTKind::Map && crdt_id != LV::MAX {
+            Some(MapRef::new(&self.oplog, crdt_id))
+        } else {
+            None
         }
-        Some(MapRef::new(&self.oplog, crdt_id))
+    }
+
+    /// Get a read-only reference to a text CRDT at the given path.
+    pub fn get_text(&self, path: &[&str]) -> Option<TextRef<'_>> {
+        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        if kind == CRDTKind::Text && crdt_id != LV::MAX {
+            Some(TextRef::new(&self.oplog, crdt_id))
+        } else {
+            None
+        }
+    }
+
+    /// Get a read-only reference to a set CRDT at the given path.
+    pub fn get_set(&self, path: &[&str]) -> Option<SetRef<'_>> {
+        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        if kind == CRDTKind::Set && crdt_id != LV::MAX {
+            Some(SetRef::new(&self.oplog, crdt_id))
+        } else {
+            None
+        }
     }
 
     /// Get a read-only reference to a text CRDT by its ID.
@@ -281,15 +297,6 @@ impl<'a> Transaction<'a> {
         Some(SetMut::new(self.oplog, self.agent, crdt_id))
     }
 
-    /// Get a mutable reference to a register CRDT at the given path.
-    pub fn get_register_mut(&mut self, path: &[&str]) -> Option<RegisterMut<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
-        if kind != CRDTKind::Register || crdt_id == LV::MAX {
-            return None;
-        }
-        Some(RegisterMut::new(self.oplog, self.agent, crdt_id))
-    }
-
     // ============ Navigate by ID ============
 
     /// Get a mutable reference to a map by its CRDT ID.
@@ -310,15 +317,6 @@ impl<'a> Transaction<'a> {
     pub fn set_by_id(&mut self, id: CrdtId) -> Option<SetMut<'_>> {
         if self.oplog.sets.contains_key(&id.0) {
             Some(SetMut::new(self.oplog, self.agent, id.0))
-        } else {
-            None
-        }
-    }
-
-    /// Get a mutable reference to a register CRDT by its ID.
-    pub fn register_by_id(&mut self, id: CrdtId) -> Option<RegisterMut<'_>> {
-        if self.oplog.registers.contains_key(&id.0) {
-            Some(RegisterMut::new(self.oplog, self.agent, id.0))
         } else {
             None
         }
