@@ -750,21 +750,75 @@ impl OpLog {
             }
         }
 
-        for (crdt_r_name, rv, mut op_metrics) in changes.text_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
-            let mut v_range: DTRange = (lv..lv + op_metrics.len()).into();
+        for (crdt_r_name, rv, op_metrics) in changes.text_ops {
+            // The operation covers sequence range rv.1 .. rv.1 + op_metrics.len()
+            // We need to find which sequences are NEW (not already known).
+            // A sequence is new if its LV falls within new_range.
 
-            if v_range.end <= new_range.start { continue; }
-            else if v_range.start < new_range.start {
-                // Trim the new operation.
-                op_metrics.truncate_keeping_right_ctx(new_range.start - v_range.start, &changes.text_context);
-                v_range.start = new_range.start;
+            let agent = self.cg.agent_assignment.get_agent_id(rv.0);
+            let agent = match agent {
+                Some(a) => a,
+                None => continue, // Agent not found, skip
+            };
+
+            let seq_start = rv.1;
+            let seq_end = rv.1 + op_metrics.len();
+
+            // Collect chunks to apply (to avoid borrow checker issues)
+            // Each chunk is (lv_range, content_start, content_len) where content_start/len
+            // are offsets into the operation's content.
+            let chunks_to_apply: Vec<_> = {
+                let client_data = &self.cg.agent_assignment.client_data[agent as usize];
+
+                let mut chunks = Vec::new();
+
+                for KVPair(chunk_seq, chunk_lv_range) in client_data.lv_for_seq.iter_range((seq_start..seq_end).into()) {
+                    // Calculate where this chunk's content starts in the operation
+                    let content_start = chunk_seq - seq_start;
+                    let content_len = chunk_lv_range.len();
+
+                    // Check if this LV range is new
+                    if chunk_lv_range.end <= new_range.start {
+                        // Already have this chunk, skip
+                        continue;
+                    }
+
+                    let mut apply_lv_range = chunk_lv_range;
+                    let mut apply_content_start = content_start;
+                    let mut apply_content_len = content_len;
+
+                    if chunk_lv_range.start < new_range.start {
+                        // Partially new - skip the already-known part
+                        let skip = new_range.start - chunk_lv_range.start;
+                        apply_lv_range.start = new_range.start;
+                        apply_content_start += skip;
+                        apply_content_len -= skip;
+                    }
+
+                    chunks.push((apply_lv_range, apply_content_start, apply_content_len));
+                }
+                chunks
+            };
+
+            // Apply collected chunks
+            for (apply_lv_range, content_start, content_len) in chunks_to_apply {
+                // Extract the portion of the operation for this chunk
+                let mut chunk_op = op_metrics.clone();
+
+                // Truncate from start to skip to content_start
+                if content_start > 0 {
+                    chunk_op.truncate_keeping_right_ctx(content_start, &changes.text_context);
+                }
+
+                // Truncate from end if this chunk is shorter than remaining content
+                if chunk_op.len() > content_len {
+                    chunk_op.truncate_ctx(content_len, &changes.text_context);
+                }
+
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
+                let op = chunk_op.to_operation(&changes.text_context);
+                self.remote_text_op(crdt_id, apply_lv_range, op);
             }
-
-            let crdt_id = self.remote_to_crdt_name(crdt_r_name);
-
-            let op = op_metrics.to_operation(&changes.text_context);
-            self.remote_text_op(crdt_id, v_range, op);
         }
 
         // Deserialize set operations, converting RemoteVersion tags back to LVs
