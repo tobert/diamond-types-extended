@@ -134,7 +134,7 @@ mod test {
     #[test]
     #[ignore]
     fn dot_of_node_cc() {
-        let name = "benchmark_data/node_nodecc.dt";
+        let name = "test_data/oss/node_nodecc.dt";
         let contents = fs::read(name).unwrap();
         let oplog = ListOpLog::load_from(&contents).unwrap();
 

@@ -524,10 +524,10 @@ mod test {
     #[ignore]
     fn print_file_plan() {
         let mut bytes = vec![];
-        // File::open("benchmark_data/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        // File::open("benchmark_data/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        File::open("benchmark_data/clownschool.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        // File::open("benchmark_data/friendsforever.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/oss/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/oss/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        File::open("test_data/collab/clownschool.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/collab/friendsforever.dt").unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
         let cg = &o.cg;
 

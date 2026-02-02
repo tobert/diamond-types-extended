@@ -1214,7 +1214,7 @@ mod test {
     #[cfg(feature = "gen_test_data")]
     fn dump_index_stats(bench_name: &str) {
         let mut bytes = vec![];
-        File::open(format!("benchmark_data/{bench_name}.dt")).unwrap().read_to_end(&mut bytes).unwrap();
+        File::open(format!("test_data/papers/{bench_name}.dt")).unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
 
         let out_file = format!("idxtrace_{bench_name}.json");
@@ -1233,7 +1233,7 @@ mod test {
         // git-makefile: 23166
         let mut bytes = vec![];
 
-        File::open("benchmark_data/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        File::open("test_data/oss/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
         o.checkout_tip();
 
@@ -1241,7 +1241,7 @@ mod test {
 
         println!("----");
         bytes.clear();
-        File::open("benchmark_data/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        File::open("test_data/oss/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
         o.checkout_tip();
 
@@ -1250,7 +1250,7 @@ mod test {
 
         // println!("----");
         // bytes.clear();
-        // File::open("benchmark_data/friendsforever.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/collab/friendsforever.dt").unwrap().read_to_end(&mut bytes).unwrap();
         // let o = ListOpLog::load_from(&bytes).unwrap();
         // o.checkout_tip();
         //

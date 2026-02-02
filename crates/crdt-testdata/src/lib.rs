@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let data = load_testing_data("../../benchmark_data/sveltecomponent.json.gz");
+        let data = load_testing_data("../../test_data/misc/sveltecomponent.json.gz");
         assert!(data.txns.len() > 0);
     }
 }

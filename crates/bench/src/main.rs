@@ -14,9 +14,48 @@ use facet::list::{ListCRDT, ListOpLog};
 use facet::list::encoding::*;
 use crate::utils::*;
 
+/// Get path to JSON test data file
+fn testing_data_path(name: &str) -> String {
+    match name {
+        // Papers (have .json.gz)
+        "automerge-paper" | "egwalker" | "seph-blog1" =>
+            format!("test_data/papers/{}.json.gz", name),
+        // Collab sessions (only _flat versions have .json.gz)
+        "clownschool_flat" | "friendsforever_flat" =>
+            format!("test_data/collab/{}.json.gz", name),
+        // Misc JSON sources
+        "rustcode" | "sveltecomponent" =>
+            format!("test_data/misc/{}.json.gz", name),
+        _ => panic!("No JSON trace for dataset: {}", name),
+    }
+}
+
+/// Get path to .dt test data file
+fn testing_data_dt_path(name: &str) -> String {
+    match name {
+        // Papers
+        "automerge-paper" | "egwalker" | "seph-blog1" =>
+            format!("test_data/papers/{}.dt", name),
+        // OSS projects (.dt only)
+        "git-makefile" | "node_nodecc" =>
+            format!("test_data/oss/{}.dt", name),
+        // Collab sessions
+        "clownschool" | "friendsforever" | "friendsforever_raw" =>
+            format!("test_data/collab/{}.dt", name),
+        // Synthetic (.dt only)
+        "A1" | "A2" | "C1" | "C2" | "S1" | "S2" | "S3" =>
+            format!("test_data/synthetic/{}.dt", name),
+        _ => panic!("Unknown dataset: {}", name),
+    }
+}
+
 fn testing_data(name: &str) -> TestData {
-    let filename = format!("benchmark_data/{}.json.gz", name);
-    load_testing_data(&filename)
+    load_testing_data(&testing_data_path(name))
+}
+
+fn testing_data_dt(name: &str) -> ListOpLog {
+    let bytes = std::fs::read(&testing_data_dt_path(name)).unwrap();
+    ListOpLog::load_from(&bytes).unwrap()
 }
 
 // const LINEAR_DATASETS: &[&str] = &["automerge-paper", "rustcode", "sveltecomponent", "seph-blog1", "friendsforever_flat"];
@@ -122,8 +161,7 @@ fn encoding_nodecc_benchmarks(c: &mut Criterion) {
 
         // for name in COMPLEX_DATASETS {
         let mut group = c.benchmark_group("dt");
-        // println!("benchmark_data/{name}.dt");
-        let bytes = std::fs::read(format!("benchmark_data/{name}.dt")).unwrap();
+        let bytes = std::fs::read(&testing_data_dt_path(name)).unwrap();
         let oplog = ListOpLog::load_from(&bytes).unwrap();
         // group.throughput(Throughput::Bytes(bytes.len() as _));
         group.throughput(Throughput::Elements(oplog.len() as _));
@@ -179,8 +217,7 @@ fn paper_benchmarks(c: &mut Criterion) {
     // const PAPER_DATASETS: &[&str] = &["automerge-paperx3", "seph-blog1x3", "node_nodeccx1", "friendsforeverx25", "clownschoolx25", "egwalkerx1", "git-makefilex2"];
     for name in PAPER_DATASETS {
         let mut group = c.benchmark_group("dt");
-        let bytes = std::fs::read(format!("benchmark_data/{name}.dt")).unwrap();
-        let oplog = ListOpLog::load_from(&bytes).unwrap();
+        let oplog = testing_data_dt(name);
         group.throughput(Throughput::Elements(oplog.len() as _));
 
         group.bench_function(BenchmarkId::new("merge_norm", name), |b| {
@@ -212,8 +249,7 @@ fn opt_load_time_benchmark(c: &mut Criterion) {
     for &name in PAPER_DATASETS {
         let mut group = c.benchmark_group("dt");
 
-        let bytes = std::fs::read(format!("benchmark_data/{name}.dt")).unwrap();
-        let oplog = ListOpLog::load_from(&bytes).unwrap();
+        let oplog = testing_data_dt(name);
         let doc_content = oplog.checkout_tip().content().to_string();
 
         let temp_dir = env::temp_dir();

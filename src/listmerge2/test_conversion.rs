@@ -446,8 +446,8 @@ mod test {
     #[ignore]
     fn node_cc() {
         let mut bytes = vec![];
-        // File::open("benchmark_data/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        File::open("benchmark_data/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/oss/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        File::open("test_data/oss/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
         let cg = o.cg;
 
@@ -487,8 +487,8 @@ mod test {
     #[ignore]
     fn make_plan() {
         let mut bytes = vec![];
-        File::open("benchmark_data/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
-        // File::open("benchmark_data/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        File::open("test_data/oss/git-makefile.dt").unwrap().read_to_end(&mut bytes).unwrap();
+        // File::open("test_data/oss/node_nodecc.dt").unwrap().read_to_end(&mut bytes).unwrap();
         let o = ListOpLog::load_from(&bytes).unwrap();
         let cg = o.cg;
 

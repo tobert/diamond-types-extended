@@ -897,10 +897,10 @@ mod test {
 #[ignore]
 #[test]
 fn lite_bench() {
-    let bytes = std::fs::read(format!("benchmark_data/clownschool.dt")).unwrap();
-    // let bytes = std::fs::read(format!("benchmark_data/git-makefile.dt")).unwrap();
-    // let bytes = std::fs::read(format!("benchmark_data/node_nodecc.dt")).unwrap();
-    // let bytes = std::fs::read(format!("benchmark_data/friendsforever.dt")).unwrap();
+    let bytes = std::fs::read(format!("test_data/collab/clownschool.dt")).unwrap();
+    // let bytes = std::fs::read(format!("test_data/oss/git-makefile.dt")).unwrap();
+    // let bytes = std::fs::read(format!("test_data/oss/node_nodecc.dt")).unwrap();
+    // let bytes = std::fs::read(format!("test_data/collab/friendsforever.dt")).unwrap();
     let oplog = ListOpLog::load_from(&bytes).unwrap();
     let (plan, _common) = oplog.cg.graph.make_m1_plan(None, &[], oplog.cg.version.as_ref(), true);
     // let (plan, _common) = oplog.cg.graph.make_m1_plan(None, &[], &[113], true);

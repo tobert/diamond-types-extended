@@ -2,6 +2,25 @@ use std::hint::black_box;
 use crdt_testdata::{load_testing_data, TestPatch, TestTxn};
 use facet::list::{ListCRDT, ListOpLog};
 
+/// Get path to .dt test data file
+fn dt_path(name: &str) -> String {
+    match name {
+        // Papers
+        "automerge-paper" | "egwalker" | "seph-blog1" =>
+            format!("test_data/papers/{}.dt", name),
+        // OSS projects
+        "git-makefile" | "node_nodecc" =>
+            format!("test_data/oss/{}.dt", name),
+        // Collab sessions
+        "clownschool" | "friendsforever" | "friendsforever_raw" =>
+            format!("test_data/collab/{}.dt", name),
+        // Synthetic
+        "A1" | "A2" | "C1" | "C2" | "S1" | "S2" | "S3" =>
+            format!("test_data/synthetic/{}.dt", name),
+        _ => panic!("Unknown dataset: {}", name),
+    }
+}
+
 pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
     let id = doc.get_or_create_agent_id("jeremy");
 
@@ -21,7 +40,7 @@ pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 // This is a dirty addition for profiling.
 #[allow(unused)]
 fn profile_direct_editing() {
-    let filename = "benchmark_data/automerge-paper.json.gz";
+    let filename = "test_data/papers/automerge-paper.json.gz";
     let test_data = load_testing_data(&filename);
 
     for _i in 0..300 {
@@ -33,7 +52,7 @@ fn profile_direct_editing() {
 
 #[allow(unused)]
 fn profile_merge(name: &str, n: usize) {
-    let contents = std::fs::read(&format!("benchmark_data/{name}.dt")).unwrap();
+    let contents = std::fs::read(&dt_path(name)).unwrap();
     let oplog = ListOpLog::load_from(&contents).unwrap();
 
     for _i in 0..n {
@@ -44,7 +63,7 @@ fn profile_merge(name: &str, n: usize) {
 
 #[allow(unused)]
 fn profile_make_plan(name: &str, n: usize) {
-    let contents = std::fs::read(&format!("benchmark_data/{name}.dt")).unwrap();
+    let contents = std::fs::read(&dt_path(name)).unwrap();
     let oplog = ListOpLog::load_from(&contents).unwrap();
 
     for _i in 0..n {
