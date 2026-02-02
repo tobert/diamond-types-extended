@@ -510,18 +510,18 @@ impl OpLog {
         self.checkout_map(ROOT_CRDT_ID)
     }
 
-    pub fn crdt_at_path(&self, path: &[&str]) -> (CRDTKind, LVKey) {
+    /// Try to navigate to a CRDT at the given path. Returns None if path doesn't exist.
+    pub fn try_crdt_at_path(&self, path: &[&str]) -> Option<(CRDTKind, LVKey)> {
         let mut kind = CRDTKind::Map;
         let mut key = ROOT_CRDT_ID;
 
         for p in path {
             match kind {
                 CRDTKind::Map => {
-                    let container = self.map_keys.get(&(key, (*p).into()))
-                        .unwrap();
+                    let container = self.map_keys.get(&(key, (*p).into()))?;
                     match self.resolve_mv(container) {
                         RegisterValue::Primitive(_) => {
-                            panic!("Found primitive, not CRDT");
+                            return None; // Found primitive, not CRDT
                         }
                         RegisterValue::OwnedCRDT(new_kind, new_key) => {
                             kind = new_kind;
@@ -530,19 +530,30 @@ impl OpLog {
                     }
                 }
                 _ => {
-                    panic!("Invalid path in document");
+                    return None; // Can't navigate deeper into non-map
                 }
             }
         }
 
-        (kind, key)
+        Some((kind, key))
     }
 
+    /// Navigate to a CRDT at the given path. Panics if path doesn't exist.
+    pub fn crdt_at_path(&self, path: &[&str]) -> (CRDTKind, LVKey) {
+        self.try_crdt_at_path(path)
+            .expect("Path should exist in document")
+    }
+
+    /// Try to navigate to a text CRDT at the given path. Returns None if path doesn't exist or isn't Text.
+    pub fn try_text_at_path(&self, path: &[&str]) -> Option<LVKey> {
+        let (kind, key) = self.try_crdt_at_path(path)?;
+        if kind == CRDTKind::Text { Some(key) } else { None }
+    }
+
+    /// Navigate to a text CRDT at the given path. Panics if path doesn't exist or isn't Text.
     pub fn text_at_path(&self, path: &[&str]) -> LVKey {
-        let (kind, key) = self.crdt_at_path(path);
-        if kind != CRDTKind::Text {
-            panic!("Unexpected CRDT kind {:?}", kind);
-        } else { key }
+        self.try_text_at_path(path)
+            .expect("Path should exist and be a Text CRDT")
     }
 
     pub fn text_changes_since(&self, text: LVKey, since_frontier: &[LV]) -> Vec<(DTRange, Option<TextOperation>)> {

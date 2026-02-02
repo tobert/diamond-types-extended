@@ -239,49 +239,58 @@ impl Branch {
         diff_rev
     }
 
-    pub fn crdt_at_path(&self, path: &[&str]) -> (CRDTKind, LVKey) {
+    /// Try to navigate to a CRDT at the given path. Returns None if path doesn't exist.
+    pub fn try_crdt_at_path(&self, path: &[&str]) -> Option<(CRDTKind, LVKey)> {
         let mut kind = CRDTKind::Map;
         let mut key = ROOT_CRDT_ID;
 
         for p in path {
             match kind {
                 CRDTKind::Map => {
-                    let obj = self.maps.get(&key).unwrap();
-                    let state = obj.get(*p).unwrap();
-
+                    let obj = self.maps.get(&key)?;
+                    let state = obj.get(*p)?;
                     match state.value {
-                        RegisterValue::Primitive(_) => {
-                            panic!("Found primitive, not CRDT");
-                        }
+                        RegisterValue::Primitive(_) => return None,
                         RegisterValue::OwnedCRDT(new_kind, new_key) => {
                             kind = new_kind;
                             key = new_key;
                         }
                     }
                 }
-                _ => {
-                    panic!("Invalid path in document");
-                }
+                _ => return None,
             }
         }
-
-        (kind, key)
+        Some((kind, key))
     }
 
+    /// Navigate to a CRDT at the given path. Panics if path doesn't exist.
+    pub fn crdt_at_path(&self, path: &[&str]) -> (CRDTKind, LVKey) {
+        self.try_crdt_at_path(path)
+            .expect("Path should exist in document")
+    }
+
+    /// Try to navigate to a text CRDT at the given path. Returns None if path doesn't exist or isn't Text.
+    pub fn try_text_at_path(&self, path: &[&str]) -> Option<LVKey> {
+        let (kind, key) = self.try_crdt_at_path(path)?;
+        if kind == CRDTKind::Text { Some(key) } else { None }
+    }
+
+    /// Navigate to a text CRDT at the given path. Panics if path doesn't exist or isn't Text.
     pub fn text_at_path(&self, path: &[&str]) -> LVKey {
-        let (kind, key) = self.crdt_at_path(path);
-        if kind != CRDTKind::Text {
-            panic!("Unexpected CRDT kind {:?}", kind);
-        } else { key }
+        self.try_text_at_path(path)
+            .expect("Path should exist and be a Text CRDT")
     }
 
-    pub fn register_in_map(&self, path: &[&str], key: &str) -> Option<&RegisterValue> {
-        let (kind, crdt) = self.crdt_at_path(path);
-        if kind != CRDTKind::Map {
-            panic!("Expected a map, found a {:?}", kind);
-        }
-
+    /// Try to get a register value in a map at the given path. Returns None if path doesn't exist or isn't a Map.
+    pub fn try_register_in_map(&self, path: &[&str], key: &str) -> Option<&RegisterValue> {
+        let (kind, crdt) = self.try_crdt_at_path(path)?;
+        if kind != CRDTKind::Map { return None; }
         Some(&self.maps.get(&crdt)?.get(key)?.value)
+    }
+
+    /// Get a register value in a map at the given path. Returns None if path doesn't exist, isn't a Map, or key doesn't exist.
+    pub fn register_in_map(&self, path: &[&str], key: &str) -> Option<&RegisterValue> {
+        self.try_register_in_map(path, key)
     }
 
     // TODO: Probably better to return a Result here.
