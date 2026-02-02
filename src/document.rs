@@ -133,8 +133,9 @@ impl Document {
     /// Get a read-only reference to a map at the given path.
     ///
     /// Path elements are keys in nested maps starting from root.
+    /// Returns None if path doesn't exist or isn't a Map.
     pub fn get_map(&self, path: &[&str]) -> Option<MapRef<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
         if kind == CRDTKind::Map && crdt_id != LV::MAX {
             Some(MapRef::new(&self.oplog, crdt_id))
         } else {
@@ -143,8 +144,9 @@ impl Document {
     }
 
     /// Get a read-only reference to a text CRDT at the given path.
+    /// Returns None if path doesn't exist or isn't a Text.
     pub fn get_text(&self, path: &[&str]) -> Option<TextRef<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
         if kind == CRDTKind::Text && crdt_id != LV::MAX {
             Some(TextRef::new(&self.oplog, crdt_id))
         } else {
@@ -153,8 +155,9 @@ impl Document {
     }
 
     /// Get a read-only reference to a set CRDT at the given path.
+    /// Returns None if path doesn't exist or isn't a Set.
     pub fn get_set(&self, path: &[&str]) -> Option<SetRef<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
         if kind == CRDTKind::Set && crdt_id != LV::MAX {
             Some(SetRef::new(&self.oplog, crdt_id))
         } else {
@@ -330,17 +333,19 @@ impl<'a> Transaction<'a> {
     // ============ Navigate by path ============
 
     /// Get a mutable reference to a map at the given path.
+    /// Returns None if path doesn't exist.
     pub fn get_map_mut(&mut self, path: &[&str]) -> Option<MapMut<'_>> {
-        let (_, crdt_id) = self.oplog.crdt_at_path(path);
-        if crdt_id == LV::MAX {
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
+        if kind != CRDTKind::Map || crdt_id == LV::MAX {
             return None;
         }
         Some(MapMut::new(self.oplog, self.agent, crdt_id))
     }
 
     /// Get a mutable reference to a text CRDT at the given path.
+    /// Returns None if path doesn't exist or isn't a Text.
     pub fn get_text_mut(&mut self, path: &[&str]) -> Option<TextMut<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
         if kind != CRDTKind::Text || crdt_id == LV::MAX {
             return None;
         }
@@ -348,8 +353,9 @@ impl<'a> Transaction<'a> {
     }
 
     /// Get a mutable reference to a set CRDT at the given path.
+    /// Returns None if path doesn't exist or isn't a Set.
     pub fn get_set_mut(&mut self, path: &[&str]) -> Option<SetMut<'_>> {
-        let (kind, crdt_id) = self.oplog.crdt_at_path(path);
+        let (kind, crdt_id) = self.oplog.try_crdt_at_path(path)?;
         if kind != CRDTKind::Set || crdt_id == LV::MAX {
             return None;
         }
