@@ -61,6 +61,11 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 clap = { version = "4", features = ["derive"] }
 crdt-testdata = { path = "crates/crdt-testdata" }
 trace-alloc = { path = "crates/trace-alloc" }
+criterion = "0.5"
+
+[[bench]]
+name = "sync_benchmark"
+harness = false
 
 # For OT fuzz data tests
 #json_minimal = "0.1.3"
