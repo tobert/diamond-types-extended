@@ -4,12 +4,13 @@
 //! - `Document`: The unified CRDT container with a Map root
 //! - `Transaction`: Batch mutations with captured agent
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 use smartstring::alias::String as SmartString;
 
 use crate::value::{Conflicted, CrdtId, Value};
-use crate::{AgentId, CRDTKind, CreateValue, Frontier, OpLog, Primitive, RegisterValue, ROOT_CRDT_ID, LV};
+use crate::{AgentId, CRDTKind, CreateValue, DTValue, Frontier, OpLog, Primitive, RegisterValue, ROOT_CRDT_ID, LV};
 use crate::refs::{MapRef, RegisterRef, SetRef, TextRef};
 use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 
@@ -283,6 +284,43 @@ impl Document {
     /// avoids cloning strings.
     pub fn merge_ops_borrowed(&mut self, ops: crate::SerializedOps<'_>) -> Result<(), crate::encoding::parseerror::ParseError> {
         self.oplog.merge_ops(ops).map(|_| ())
+    }
+
+    // ============ Full state access ============
+
+    /// Get the full document state as a nested map structure.
+    ///
+    /// This returns the resolved state of all CRDTs rooted at the document.
+    /// Useful for:
+    /// - Comparing document content across peers (content convergence)
+    /// - Serialization to JSON or other formats
+    /// - Debugging and inspection
+    ///
+    /// Note: For comparing documents after sync, compare `checkout()` output
+    /// rather than `version()`. Local versions (LVs) differ across peers
+    /// after concurrent operations, but content will converge.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use facet::Document;
+    ///
+    /// let mut doc = Document::new();
+    /// let alice = doc.get_or_create_agent("alice");
+    ///
+    /// doc.transact(alice, |tx| {
+    ///     tx.root().set("key", "value");
+    ///     tx.root().create_text("content");
+    /// });
+    /// doc.transact(alice, |tx| {
+    ///     tx.get_text_mut(&["content"]).unwrap().insert(0, "Hello!");
+    /// });
+    ///
+    /// let state = doc.checkout();
+    /// // state is a BTreeMap with the full document tree
+    /// ```
+    pub fn checkout(&self) -> BTreeMap<SmartString, Box<DTValue>> {
+        self.oplog.checkout()
     }
 
     // ============ Internal access (for advanced use) ============

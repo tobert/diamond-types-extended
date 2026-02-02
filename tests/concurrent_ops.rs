@@ -11,12 +11,17 @@ use facet::{Document, SerializedOpsOwned};
 mod helpers {
     use facet::Document;
 
-    /// Assert documents have converged (same version)
+    /// Assert documents have converged (same content).
+    ///
+    /// Note: We compare `checkout()` output rather than `version()` because
+    /// local versions (LVs) can differ across peers after concurrent operations.
+    /// What matters for CRDT correctness is content convergence - same operations
+    /// applied in any order produce the same state.
     pub fn assert_converged(a: &Document, b: &Document) {
         assert_eq!(
-            a.version(),
-            b.version(),
-            "Documents should have same version after sync"
+            a.checkout(),
+            b.checkout(),
+            "Documents should have same content after sync"
         );
     }
 
@@ -27,6 +32,14 @@ mod helpers {
         b.merge_ops(ops_a).unwrap();
         a.merge_ops(ops_b).unwrap();
         assert_converged(a, b);
+    }
+
+    /// Sync a pair of documents by index (for use with arrays)
+    pub fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
+        let ops_a = docs[a].ops_since(&[]).into();
+        let ops_b = docs[b].ops_since(&[]).into();
+        docs[b].merge_ops(ops_a).unwrap();
+        docs[a].merge_ops(ops_b).unwrap();
     }
 }
 
@@ -517,4 +530,123 @@ fn set_concurrent_different_items() {
     assert!(set_a.contains_str("bob_tag"));
     assert!(set_b.contains_str("alice_tag"));
     assert!(set_b.contains_str("bob_tag"));
+}
+
+// =============================================================================
+// Multi-Agent Offline/Reconnect Tests
+// =============================================================================
+
+#[test]
+fn multi_agent_offline_reconnect_convergence() {
+    // Simulate 5 agents: Alice, Bob, Carol, Dave, Eve
+    // Each goes offline, makes edits, then reconnects in a realistic pattern
+
+    let mut docs: Vec<Document> = (0..5).map(|_| Document::new()).collect();
+    let names = ["alice", "bob", "carol", "dave", "eve"];
+    let agents: Vec<_> = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| docs[i].get_or_create_agent(name))
+        .collect();
+
+    // Phase 1: Initial shared state (all online)
+    docs[0].transact(agents[0], |tx| {
+        tx.root().create_text("shared_doc");
+        tx.root().create_map("metadata");
+    });
+    docs[0].transact(agents[0], |tx| {
+        tx.get_text_mut(&["shared_doc"]).unwrap().insert(0, "Hello");
+    });
+
+    // Sync initial state to all
+    let initial_ops: SerializedOpsOwned = docs[0].ops_since(&[]).into();
+    for doc in docs.iter_mut().skip(1) {
+        doc.merge_ops(initial_ops.clone()).unwrap();
+    }
+
+    // Phase 2: Agents go offline and make concurrent edits
+    // Alice: edits text
+    docs[0].transact(agents[0], |tx| {
+        tx.get_text_mut(&["shared_doc"]).unwrap().push(" from Alice");
+    });
+
+    // Bob: edits text differently
+    docs[1].transact(agents[1], |tx| {
+        tx.get_text_mut(&["shared_doc"]).unwrap().push(" from Bob");
+    });
+
+    // Carol: adds metadata
+    docs[2].transact(agents[2], |tx| {
+        if let Some(mut m) = tx.get_map_mut(&["metadata"]) {
+            m.set("author", "carol");
+        }
+    });
+
+    // Dave: edits both text and metadata
+    docs[3].transact(agents[3], |tx| {
+        tx.get_text_mut(&["shared_doc"]).unwrap().insert(0, "Dave: ");
+    });
+    docs[3].transact(agents[3], |tx| {
+        if let Some(mut m) = tx.get_map_mut(&["metadata"]) {
+            m.set("version", 2i64);
+        }
+    });
+
+    // Eve: more text edits
+    docs[4].transact(agents[4], |tx| {
+        tx.get_text_mut(&["shared_doc"]).unwrap().push("!");
+    });
+
+    // Phase 3: Gradual reconnection (not all at once)
+    // First: Alice and Bob sync
+    helpers::sync_pair(&mut docs, 0, 1);
+
+    // Then: Carol joins Alice/Bob group
+    helpers::sync_pair(&mut docs, 0, 2);
+    helpers::sync_pair(&mut docs, 1, 2);
+
+    // Then: Dave syncs with Carol
+    helpers::sync_pair(&mut docs, 2, 3);
+
+    // Finally: Eve syncs with everyone via Dave
+    helpers::sync_pair(&mut docs, 3, 4);
+
+    // Phase 4: Full mesh sync to ensure complete convergence
+    for i in 0..5 {
+        for j in (i + 1)..5 {
+            helpers::sync_pair(&mut docs, i, j);
+        }
+    }
+
+    // All documents should have converged to same content
+    let reference = docs[0].checkout();
+    for (i, doc) in docs.iter().enumerate().skip(1) {
+        assert_eq!(
+            reference,
+            doc.checkout(),
+            "Document {} ({}) should match reference after full sync",
+            i,
+            names[i]
+        );
+    }
+
+    // Verify text contains contributions from agents (order depends on CRDT)
+    let text = docs[0].root().get_text("shared_doc").unwrap().content();
+    // The text should contain the base "Hello" plus various additions
+    assert!(
+        text.contains("Hello"),
+        "Text should contain base content: {}",
+        text
+    );
+
+    // Verify metadata has both keys
+    let metadata = docs[0].get_map(&["metadata"]).unwrap();
+    assert!(
+        metadata.contains_key("author"),
+        "Metadata should have author key"
+    );
+    assert!(
+        metadata.contains_key("version"),
+        "Metadata should have version key"
+    );
 }

@@ -583,7 +583,10 @@ impl OpLog {
     // }
 
     pub fn ops_since(&self, since_frontier: &[LV]) -> SerializedOps<'_> {
-        let mut write_map = WriteMap::with_capacity_from(&self.cg.agent_assignment.client_data);
+        // Use WriteMap::new() to ensure all agent definitions are explicitly included.
+        // Using with_capacity_from() would pre-populate with local agents, causing
+        // the serializer to omit agent definitions and break cross-peer merges.
+        let mut write_map = WriteMap::new();
 
         let diff_rev = self.cg.diff_since_rev(since_frontier);
         // let bump = Bump::new();
@@ -634,6 +637,8 @@ impl OpLog {
         }
 
         // Serialize text operations
+        // Note: Operations may be RLE-merged across agent boundaries. We must split
+        // them back into per-agent chunks to preserve correct version attribution.
         let mut text_context = ListOperationCtx::new();
         let mut text_ops = Vec::new();
         for crdt in text_crdts_to_send {
@@ -641,18 +646,42 @@ impl OpLog {
             let info = &self.texts[&crdt];
             for r in diff_rev.iter() {
                 for KVPair(lv, op) in info.ops.iter_range_ctx(*r, &info.ctx) {
-                    // dbg!(&op);
+                    let op_end = lv + op.len();
 
-                    let op_out = ListOpMetrics {
-                        loc: op.loc,
-                        kind: op.kind,
-                        content_pos: op.content_pos.map(|content_pos| {
-                            let content = info.ctx.get_str(op.kind, content_pos);
-                            text_context.push_str(op.kind, content)
-                        }),
-                    };
-                    let rv = self.cg.agent_assignment.local_to_remote_version(lv);
-                    text_ops.push((crdt_name, rv, op_out));
+                    // Iterate through agent assignments for this operation's LV range.
+                    // This splits the operation if it spans multiple agents.
+                    for KVPair(span_lv, agent_span) in self.cg.agent_assignment.client_with_lv.iter_range((lv..op_end).into()) {
+                        let offset = span_lv - lv;
+                        let len = agent_span.len();
+
+                        // Adjust the location for this chunk
+                        let mut loc = op.loc;
+                        if loc.fwd {
+                            loc.span.start += offset;
+                        }
+                        loc.span.end = loc.span.start + len;
+
+                        // Get the content slice for this chunk
+                        let content_pos = op.content_pos.map(|content_pos| {
+                            let full_content = info.ctx.get_str(op.kind, content_pos);
+                            // Slice the content to match this agent's chunk
+                            let chunk: String = full_content.chars().skip(offset).take(len).collect();
+                            text_context.push_str(op.kind, &chunk)
+                        });
+
+                        let op_out = ListOpMetrics {
+                            loc,
+                            kind: op.kind,
+                            content_pos,
+                        };
+
+                        // Use the correct agent and sequence for this chunk
+                        let rv = RemoteVersion(
+                            self.cg.agent_assignment.get_agent_name(agent_span.agent),
+                            agent_span.seq_range.start
+                        );
+                        text_ops.push((crdt_name, rv, op_out));
+                    }
                 }
             }
         }
@@ -786,20 +815,75 @@ impl OpLog {
             }
         }
 
-        for (crdt_r_name, rv, mut op_metrics) in changes.text_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
-            let mut v_range: DTRange = (lv..lv + op_metrics.len()).into();
+        for (crdt_r_name, rv, op_metrics) in changes.text_ops {
+            // The operation covers sequence range rv.1 .. rv.1 + op_metrics.len()
+            // We need to find which sequences are NEW (not already known).
+            // A sequence is new if its LV falls within new_range.
 
-            if v_range.end <= new_range.start { continue; }
-            else if v_range.start < new_range.start {
-                op_metrics.truncate_keeping_right_ctx(new_range.start - v_range.start, &changes.text_context);
-                v_range.start = new_range.start;
+            let agent = self.cg.agent_assignment.get_agent_id(rv.0.as_str());
+            let agent = match agent {
+                Some(a) => a,
+                None => continue, // Agent not found, skip
+            };
+
+            let seq_start = rv.1;
+            let seq_end = rv.1 + op_metrics.len();
+
+            // Collect chunks to apply (to avoid borrow checker issues)
+            // Each chunk is (lv_range, content_start, content_len) where content_start/len
+            // are offsets into the operation's content.
+            let chunks_to_apply: Vec<_> = {
+                let client_data = &self.cg.agent_assignment.client_data[agent as usize];
+
+                let mut chunks = Vec::new();
+
+                for KVPair(chunk_seq, chunk_lv_range) in client_data.lv_for_seq.iter_range((seq_start..seq_end).into()) {
+                    // Calculate where this chunk's content starts in the operation
+                    let content_start = chunk_seq - seq_start;
+                    let content_len = chunk_lv_range.len();
+
+                    // Check if this LV range is new
+                    if chunk_lv_range.end <= new_range.start {
+                        // Already have this chunk, skip
+                        continue;
+                    }
+
+                    let mut apply_lv_range = chunk_lv_range;
+                    let mut apply_content_start = content_start;
+                    let mut apply_content_len = content_len;
+
+                    if chunk_lv_range.start < new_range.start {
+                        // Partially new - skip the already-known part
+                        let skip = new_range.start - chunk_lv_range.start;
+                        apply_lv_range.start = new_range.start;
+                        apply_content_start += skip;
+                        apply_content_len -= skip;
+                    }
+
+                    chunks.push((apply_lv_range, apply_content_start, apply_content_len));
+                }
+                chunks
+            };
+
+            // Apply collected chunks
+            for (apply_lv_range, content_start, content_len) in chunks_to_apply {
+                // Extract the portion of the operation for this chunk
+                let mut chunk_op = op_metrics.clone();
+
+                // Truncate from start to skip to content_start
+                if content_start > 0 {
+                    chunk_op.truncate_keeping_right_ctx(content_start, &changes.text_context);
+                }
+
+                // Truncate from end if this chunk is shorter than remaining content
+                if chunk_op.len() > content_len {
+                    chunk_op.truncate_ctx(content_len, &changes.text_context);
+                }
+
+                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let op = chunk_op.to_operation(&changes.text_context);
+                self.remote_text_op(crdt_id, apply_lv_range, op);
             }
-
-            let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
-
-            let op = op_metrics.to_operation(&changes.text_context);
-            self.remote_text_op(crdt_id, v_range, op);
         }
 
         for (crdt_r_name, rv, set_op) in changes.set_ops {
