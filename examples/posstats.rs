@@ -10,13 +10,13 @@
 // use std::fs::File;
 use std::hint::black_box;
 use crdt_testdata::{load_testing_data, TestPatch, TestTxn};
-use facet::list::*;
+use diamond_types_extended::list::*;
 
 #[cfg(feature = "memusage")]
 use trace_alloc::*;
 #[cfg(feature = "memusage")]
 use humansize::{DECIMAL, format_size};
-use facet::list::encoding::EncodeOptions;
+use diamond_types_extended::list::encoding::EncodeOptions;
 
 /// Get path to JSON test data file
 fn json_path(name: &str) -> String {

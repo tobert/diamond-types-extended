@@ -4,7 +4,7 @@
 //! `merge_ops` (deserialization) to detect regressions from the agent-splitting fix.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use facet::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, SerializedOpsOwned};
 
 /// Build a document with many text operations from a single agent
 fn build_single_agent_document(num_ops: usize) -> Document {

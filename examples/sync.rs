@@ -8,10 +8,10 @@
 //!
 //! Run with: cargo run --example sync
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 fn main() {
-    println!("=== Facet Sync Example ===\n");
+    println!("=== Diamond Types Extended Sync Example ===\n");
 
     // Create two documents representing two peers
     let mut doc_alice = Document::new();

@@ -1,8 +1,8 @@
-# Facet
+# Diamond Types Extended
 
 High-performance CRDTs (Conflict-free Replicated Data Types) for collaborative applications.
 
-Facet is a fork of [diamond-types](https://github.com/josephg/diamond-types) with extended types and a unified API.
+Diamond Types Extended is a fork of [diamond-types](https://github.com/josephg/diamond-types) with extended types and a unified API.
 
 ## Features
 
@@ -16,7 +16,7 @@ Facet is a fork of [diamond-types](https://github.com/josephg/diamond-types) wit
 ## Quick Start
 
 ```rust
-use facet::{Document, Value};
+use diamond_types_extended::{Document, Value};
 
 // Create a document
 let mut doc = Document::new();
@@ -44,7 +44,7 @@ assert_eq!(doc.root().get_text("content").unwrap().content(), "Hello, world!");
 ## Replication
 
 ```rust
-use facet::Document;
+use diamond_types_extended::Document;
 
 let mut doc_a = Document::new();
 let mut doc_b = Document::new();
@@ -67,7 +67,7 @@ assert!(doc_b.root().contains_key("from_alice"));
 
 ## Conflict Resolution
 
-Facet uses deterministic conflict resolution:
+Diamond Types Extended uses deterministic conflict resolution:
 
 - **Maps**: LWW (Last-Writer-Wins) based on `(lamport_timestamp, agent_id)` ordering
 - **Sets**: Add-wins semantics (concurrent add + remove = add wins)
@@ -85,7 +85,7 @@ if conflicted.has_conflicts() {
 
 ## Performance
 
-Facet inherits diamond-types' exceptional performance:
+Diamond Types Extended inherits diamond-types' exceptional performance:
 - Run-length encoded operation storage
 - Optimized causal graph tracking
 - The "egwalker" merge algorithm
@@ -94,7 +94,7 @@ See the original [diamond-types blog post](https://josephg.com/blog/crdts-go-brr
 
 ## Attribution
 
-Facet is built on diamond-types by Joseph Gentle ([@josephg](https://github.com/josephg)).
+Diamond Types Extended is built on diamond-types by Joseph Gentle ([@josephg](https://github.com/josephg)).
 
 See [ATTRIBUTION.md](ATTRIBUTION.md) for full credits.
 

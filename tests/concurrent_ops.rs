@@ -6,10 +6,10 @@
 //!
 //! Test coverage informed by Gemini review recommendations.
 
-use facet::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, SerializedOpsOwned};
 
 mod helpers {
-    use facet::Document;
+    use diamond_types_extended::Document;
 
     /// Assert documents have converged (same content).
     ///

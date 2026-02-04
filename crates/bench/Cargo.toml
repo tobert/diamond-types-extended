@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-facet = { path = "../..", features = ["expose_benchmarking"] }
+diamond-types-extended = { path = "../..", features = ["expose_benchmarking"] }
 rle = { path = "../rle" }
 #criterion = { version = "0.5.1", features = ["html_reports"] }
 criterion = { version = "0.5.1", features = [] }

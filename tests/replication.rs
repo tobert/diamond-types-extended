@@ -1,6 +1,6 @@
 //! Integration tests for replication/sync
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 #[test]
 fn test_two_peer_sync_map() {

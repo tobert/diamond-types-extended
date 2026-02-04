@@ -1,6 +1,6 @@
 use std::hint::black_box;
 use crdt_testdata::{load_testing_data, TestPatch, TestTxn};
-use facet::list::{ListCRDT, ListOpLog};
+use diamond_types_extended::list::{ListCRDT, ListOpLog};
 
 /// Get path to .dt test data file
 fn dt_path(name: &str) -> String {

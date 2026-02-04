@@ -1,6 +1,6 @@
 //! Integration tests for Set CRDT
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 #[test]
 fn test_set_creation() {

@@ -1,4 +1,4 @@
-//! Read-only reference types for Facet CRDTs.
+//! Read-only reference types for Diamond Types Extended CRDTs.
 //!
 //! These types provide read-only access to CRDT data without requiring
 //! an agent or transaction.
@@ -160,7 +160,7 @@ impl<'a> TextRef<'a> {
     /// # Example
     ///
     /// ```
-    /// use facet::Document;
+    /// use diamond_types_extended::Document;
     ///
     /// let mut doc = Document::new();
     /// let alice = doc.get_or_create_agent("alice");

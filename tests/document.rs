@@ -1,6 +1,6 @@
 //! Integration tests for the Document API
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 #[test]
 fn test_document_creation() {

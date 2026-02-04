@@ -1,6 +1,6 @@
 //! Integration tests for conflict handling
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 #[test]
 fn test_lww_conflict_detection() {

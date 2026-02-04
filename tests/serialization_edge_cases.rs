@@ -3,7 +3,7 @@
 //! These tests specifically exercise the agent boundary splitting and LV mapping
 //! logic that was fixed in the convergence bug patch.
 
-use facet::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, SerializedOpsOwned};
 
 /// Sync helper: cross-sync two documents
 fn cross_sync(a: &mut Document, b: &mut Document) {

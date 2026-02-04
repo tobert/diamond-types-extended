@@ -1,5 +1,5 @@
 [package]
-name = "facet"
+name = "diamond-types-extended"
 version = "0.1.0"
 edition = "2021"
 authors = ["Amy Tobey <amy@tobert.org>"]
@@ -10,7 +10,7 @@ exclude = [
 ]
 license = "ISC"
 description = "Unified CRDT library with ergonomic API - fork of diamond-types"
-repository = "https://github.com/tobert/facet"
+repository = "https://github.com/tobert/diamond-types-extended"
 keywords = ["crdt", "collaborative", "sync", "distributed"]
 categories = ["data-structures", "concurrency"]
 

@@ -2,7 +2,7 @@
 //!
 //! After full mesh sync, documents have different text content.
 
-use facet::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, SerializedOpsOwned};
 
 fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
     let ops_a: SerializedOpsOwned = docs[a].ops_since(&[]).into();

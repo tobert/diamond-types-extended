@@ -1,4 +1,4 @@
-//! Basic usage example for Facet
+//! Basic usage example for Diamond Types Extended
 //!
 //! This example demonstrates:
 //! - Creating a document
@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example basic
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 fn main() {
     // Create a new document

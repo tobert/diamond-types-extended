@@ -10,8 +10,8 @@ use std::env;
 use criterion::{black_box, Criterion, BenchmarkId, Throughput};
 use jumprope::JumpRope;
 use crdt_testdata::{load_testing_data, TestData};
-use facet::list::{ListCRDT, ListOpLog};
-use facet::list::encoding::*;
+use diamond_types_extended::list::{ListCRDT, ListOpLog};
+use diamond_types_extended::list::encoding::*;
 use crate::utils::*;
 
 /// Get path to JSON test data file

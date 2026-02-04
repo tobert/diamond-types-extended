@@ -1,6 +1,6 @@
 //! Integration tests for Text CRDT
 
-use facet::Document;
+use diamond_types_extended::Document;
 
 #[test]
 fn test_text_creation() {

@@ -1,6 +1,6 @@
 //! Document container and Transaction API.
 //!
-//! This module provides the main entry point for the Facet API:
+//! This module provides the main entry point for the Diamond Types Extended API:
 //! - `Document`: The unified CRDT container with a Map root
 //! - `Transaction`: Batch mutations with captured agent
 
@@ -16,7 +16,7 @@ use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 
 /// A unified CRDT document container.
 ///
-/// The Document is the main entry point for Facet. It wraps an OpLog and provides:
+/// The Document is the main entry point for Diamond Types Extended. It wraps an OpLog and provides:
 /// - A Map root for organizing data
 /// - Transaction-based mutations (solves Rust borrow issues)
 /// - Consistent API across all CRDT types
@@ -24,7 +24,7 @@ use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 ///
 /// # Conflict Resolution
 ///
-/// Facet uses deterministic conflict resolution that guarantees all peers
+/// Diamond Types Extended uses deterministic conflict resolution that guarantees all peers
 /// converge to the same state:
 ///
 /// - **Maps**: Each key is an LWW (Last-Writer-Wins) register. Concurrent writes
@@ -45,7 +45,7 @@ use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 /// where operations are applied to the log immediately.
 ///
 /// ```
-/// use facet::Document;
+/// use diamond_types_extended::Document;
 ///
 /// let mut doc = Document::new();
 /// let alice = doc.get_or_create_agent("alice");
@@ -60,7 +60,7 @@ use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
 /// # Example
 ///
 /// ```
-/// use facet::Document;
+/// use diamond_types_extended::Document;
 ///
 /// let mut doc = Document::new();
 /// let alice = doc.get_or_create_agent("alice");
@@ -204,7 +204,7 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use facet::Document;
+    /// use diamond_types_extended::Document;
     ///
     /// let mut doc = Document::new();
     /// let alice = doc.get_or_create_agent("alice");
@@ -243,7 +243,7 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use facet::Document;
+    /// use diamond_types_extended::Document;
     ///
     /// let mut doc_a = Document::new();
     /// let mut doc_b = Document::new();
@@ -303,7 +303,7 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use facet::Document;
+    /// use diamond_types_extended::Document;
     ///
     /// let mut doc = Document::new();
     /// let alice = doc.get_or_create_agent("alice");

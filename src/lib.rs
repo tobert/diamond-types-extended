@@ -1,13 +1,13 @@
-//! # Facet - Unified CRDT Library
+//! # Diamond Types Extended - Unified CRDT Library
 //!
-//! Facet provides high-performance CRDTs (Conflict-free Replicated Data Types) for
+//! Diamond Types Extended provides high-performance CRDTs (Conflict-free Replicated Data Types) for
 //! collaborative applications. It's a fork of [diamond-types](https://github.com/josephg/diamond-types)
 //! with an ergonomic, unified API.
 //!
 //! ## Quick Start
 //!
 //! ```
-//! use facet::{Document, Value};
+//! use diamond_types_extended::{Document, Value};
 //!
 //! // Create a document
 //! let mut doc = Document::new();
@@ -58,7 +58,7 @@
 //!
 //! ## Attribution
 //!
-//! Facet is built on diamond-types by Joseph Gentle. See ATTRIBUTION.md for details.
+//! Diamond Types Extended is built on diamond-types by Joseph Gentle. See ATTRIBUTION.md for details.
 
 #![allow(clippy::module_inception)]
 #![allow(unused_imports, dead_code)] // During dev. TODO: Take me out!
@@ -89,7 +89,7 @@ use crate::textinfo::TextInfo;
 
 // use crate::list::internal_op::OperationInternal as TextOpInternal;
 
-// ============ New Facet Public API ============
+// ============ New Diamond Types Extended Public API ============
 mod value;
 mod document;
 mod refs;

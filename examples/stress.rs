@@ -49,7 +49,7 @@ use clap::Parser;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-use facet::{CRDTKind, CreateValue, Frontier, OpLog, Primitive, ROOT_CRDT_ID, SerializedOpsOwned};
+use diamond_types_extended::{CRDTKind, CreateValue, Frontier, OpLog, Primitive, ROOT_CRDT_ID, SerializedOpsOwned};
 
 // Universe states
 const STATE_RUNNING: u8 = 0;
