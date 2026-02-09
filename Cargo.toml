@@ -75,17 +75,17 @@ harness = false
 default = ["lz4", "storage"]
 memusage = ["trace-alloc/memusage"]
 lz4 = ["dep:lz4_flex"]
-serde = ["dep:serde", "smallvec/serde", "smartstring/serde"]
+serde = ["dep:serde", "dep:serde_json", "smallvec/serde", "smartstring/serde"]
 dot_export = []
 wchar_conversion = ["jumprope/wchar_conversion"]
 merge_conflict_checks = []
 storage = []
-expose_benchmarking = ["serde", "serde_json"]
+expose_benchmarking = ["serde", "dep:serde_json"]
 stats = []
 
 # This is internal only for generating JSON testing data. To generate, run test suite with
 # rm *_tests.json; cargo test --features gen_test_data causalgraph::parents::tools -- --test-threads 1
-gen_test_data = ["serde", "serde_json", "rand"]
+gen_test_data = ["serde", "dep:serde_json", "rand"]
 
 [lib]
 bench = false

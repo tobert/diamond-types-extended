@@ -90,7 +90,7 @@ mod refs;
 mod muts;
 
 pub use value::{Value, PrimitiveValue, MaterializedValue, CrdtId, Conflicted};
-pub use document::{Document, Transaction};
+pub use document::{Document, DocumentWriter, Transaction};
 pub use refs::{MapRef, TextRef, SetRef, RegisterRef};
 pub use muts::{MapMut, TextMut, SetMut};
 

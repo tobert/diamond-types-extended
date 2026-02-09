@@ -120,6 +120,16 @@ impl<'a> MapRef<'a> {
                 (key.as_str(), state.value.into())
             })
     }
+
+    /// Collect keys as owned Strings (avoids borrow-checker friction in FFI/WASM).
+    pub fn keys_owned(&self) -> Vec<String> {
+        self.keys().map(|s| s.to_string()).collect()
+    }
+
+    /// Collect entries as owned pairs (avoids borrow-checker friction in FFI/WASM).
+    pub fn entries_owned(&self) -> Vec<(String, Value)> {
+        self.iter().map(|(k, v)| (k.to_string(), v)).collect()
+    }
 }
 
 /// Read-only reference to a Text CRDT.
@@ -404,5 +414,40 @@ mod tests {
         let chars: Vec<char> = text.chars().collect();
 
         assert_eq!(chars, vec!['a', 'b', 'c']);
+    }
+
+    #[test]
+    fn test_map_ref_keys_owned() {
+        let mut doc = Document::new();
+        let alice = doc.get_or_create_agent("alice");
+
+        doc.transact(alice, |tx| {
+            tx.root().set("b", 2i64);
+            tx.root().set("a", 1i64);
+            tx.root().create_map("c");
+        });
+
+        let keys = doc.root().keys_owned();
+        assert_eq!(keys, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    }
+
+    #[test]
+    fn test_map_ref_entries_owned() {
+        let mut doc = Document::new();
+        let alice = doc.get_or_create_agent("alice");
+
+        doc.transact(alice, |tx| {
+            tx.root().set("name", "Alice");
+            tx.root().set("age", 30i64);
+        });
+
+        let entries = doc.root().entries_owned();
+        assert_eq!(entries.len(), 2);
+
+        // BTreeMap iteration is sorted by key
+        assert_eq!(entries[0].0, "age");
+        assert_eq!(entries[0].1.as_int(), Some(30));
+        assert_eq!(entries[1].0, "name");
+        assert_eq!(entries[1].1.as_str(), Some("Alice"));
     }
 }
