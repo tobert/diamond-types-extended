@@ -97,8 +97,6 @@ codegen-units = 1
 #opt-level = "s"
 panic = "abort"
 
-[profile.release.package.bench]
-codegen-units = 1
 
 # Use with cargo build --profile profiling
 [profile.profiling]
