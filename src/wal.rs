@@ -1,19 +1,19 @@
-/// The write-ahead log encodes new operations directly to disk in chunks. Each chunk has a
-/// checksum, so inopportune crashes don't corrupt any data.
-///
-/// Design question:
-///
-/// This is a bit controversial, but there's two options here for how I encode WAL entries:
-///
-/// 1. Each entry has a fresh agent & txn map. This will make the WAL entries bigger, because
-/// they'll all explicitly name all the IDs used and referenced.
-///
-/// But the benefit is that we can blindly append to the WAL, without reading any of the data first.
-/// Mind you, if the WAL has a corrupt tail (the last entries are broken), then this will have no
-/// effect. So to blindly append you'd still need to scan the chunks in the WAL anyway.
-///
-/// Or 2. Entries reuse an agent/txn map. This would result in smaller file sizes, but we can't
-/// blindly sendfile() at the WAL.
+//! The write-ahead log encodes new operations directly to disk in chunks. Each chunk has a
+//! checksum, so inopportune crashes don't corrupt any data.
+//!
+//! Design question:
+//!
+//! This is a bit controversial, but there's two options here for how I encode WAL entries:
+//!
+//! 1. Each entry has a fresh agent & txn map. This will make the WAL entries bigger, because
+//!    they'll all explicitly name all the IDs used and referenced.
+//!
+//! But the benefit is that we can blindly append to the WAL, without reading any of the data first.
+//! Mind you, if the WAL has a corrupt tail (the last entries are broken), then this will have no
+//! effect. So to blindly append you'd still need to scan the chunks in the WAL anyway.
+//!
+//! Or 2. Entries reuse an agent/txn map. This would result in smaller file sizes, but we can't
+//!    blindly sendfile() at the WAL.
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};

@@ -1,9 +1,9 @@
-/// This is a tiny library to convert from codepoint offsets in a utf-8 string to byte offsets, and
-/// back.
-///
-/// Its super weird that rust doesn't have anything like this in the standard library (as far as I
-/// can tell). You can fake it with char_indices().nth()... but the resulting generated code is
-/// *awful*.
+//! This is a tiny library to convert from codepoint offsets in a utf-8 string to byte offsets, and
+//! back.
+//!
+//! Its super weird that rust doesn't have anything like this in the standard library (as far as I
+//! can tell). You can fake it with char_indices().nth()... but the resulting generated code is
+//! *awful*.
 
 pub fn chars_to_bytes(s: &str, char_pos: usize) -> usize {
     // For all that my implementation above is correct and tight, ropey's char_to_byte_idx is

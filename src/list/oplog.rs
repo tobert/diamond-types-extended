@@ -307,10 +307,10 @@ impl ListOpLog {
     ///
     /// - Store the new operations
     /// - Assign the operations IDs based on the next available sequence numbers from the specified
-    /// agent
+    ///   agent
     /// - Store the operation's parents as the most recent known version. (Use
-    /// [`branch.apply_local_operations`](Branch::apply_local_operations) instead when pushing to a
-    /// branch).
+    ///   [`branch.apply_local_operations`](Branch::apply_local_operations) instead when pushing to a
+    ///   branch).
     pub fn add_operations(&mut self, agent: AgentId, ops: &[TextOperation]) -> LV {
         self.add_operations_local(agent, ops)
     }

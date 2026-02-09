@@ -7,11 +7,9 @@ use crate::listmerge::merge::TransformedResultRaw;
 use crate::LV;
 
 /// *** This is EXPERIMENTAL work-in-progress code to save transformed positions ***
-
+///
 /// This feature isn't implemented yet, but I wanted to get some benchmarking figures for my blog
 /// post.
-
-
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 enum XFState {
     Cancelled,

@@ -1,30 +1,30 @@
-/// This is a helper library for iterating through the time DAG (oplog) in a depth-first order.
-/// This is better than naive local-time order because if operations are structured like this:
-///
-/// ```text
-///   1
-///  / \
-/// 2  |
-/// |  3
-/// 4  |
-/// |  5
-/// ...
-/// ```
-///
-/// Then traversal (and hence, merge) time complexity will be linear instead of quadratic.
-///
-/// **Implementor's notes**:
-/// This structure isn't very fit for purpose. Its designed to work in conjunction with the causal
-/// graph methods for finding the conflicting set, but it essentially does a second (forward)
-/// traversal of the data set with an honestly pretty crap traversal implementation.
-///
-/// A much better implementation would combine the method to find conflicting items with the logic
-/// here, and do a much more efficient traversal. But I want to replace the whole algorithm that
-/// does merging at the moment at some point anyway, so I'd rather do that all in one go and rewrite
-/// this code when I do.
-///
-/// And what do you know! It happened. So this is now only used for optimizing the oplog order when
-/// encoding. TODO: Replace this file entirely with something simpler based off ConflictGraph.
+//! This is a helper library for iterating through the time DAG (oplog) in a depth-first order.
+//! This is better than naive local-time order because if operations are structured like this:
+//!
+//! ```text
+//!   1
+//!  / \
+//! 2  |
+//! |  3
+//! 4  |
+//! |  5
+//! ...
+//! ```
+//!
+//! Then traversal (and hence, merge) time complexity will be linear instead of quadratic.
+//!
+//! **Implementor's notes**:
+//! This structure isn't very fit for purpose. Its designed to work in conjunction with the causal
+//! graph methods for finding the conflicting set, but it essentially does a second (forward)
+//! traversal of the data set with an honestly pretty crap traversal implementation.
+//!
+//! A much better implementation would combine the method to find conflicting items with the logic
+//! here, and do a much more efficient traversal. But I want to replace the whole algorithm that
+//! does merging at the moment at some point anyway, so I'd rather do that all in one go and rewrite
+//! this code when I do.
+//!
+//! And what do you know! It happened. So this is now only used for optimizing the oplog order when
+//! encoding. TODO: Replace this file entirely with something simpler based off ConflictGraph.
 
 use std::mem::take;
 use smallvec::{SmallVec, smallvec};

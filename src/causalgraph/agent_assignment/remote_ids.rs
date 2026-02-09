@@ -1,5 +1,4 @@
-/// This file contains utilities to convert remote IDs to local version and back.
-
+//! This file contains utilities to convert remote IDs to local version and back.
 
 use smartstring::alias::String as SmartString;
 #[cfg(feature = "serde")]

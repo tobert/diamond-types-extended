@@ -1,15 +1,15 @@
+//! We're using protobuf's encoding system for variable sized integers. Most numbers we store here
+//! follow a Parato distribution, so this ends up being a space savings overall.
+//!
+//! The encoding format is described in much more detail
+//! [in google's protobuf documentation](https://developers.google.com/protocol-buffers/docs/encoding)
+//!
+//! This code has been stolen with love from [rust-protobuf](https://github.com/stepancheg/rust-protobuf/blob/681462cc2a7068a2ff4111bbf19861c005c38225/protobuf/src/varint.rs)
+//!
+//! (With some modifications.)
+
 use std::mem::size_of;
 use crate::encoding::parseerror::ParseError;
-
-/// We're using protobuf's encoding system for variable sized integers. Most numbers we store here
-/// follow a Parato distribution, so this ends up being a space savings overall.
-///
-/// The encoding format is described in much more detail
-/// [in google's protobuf documentation](https://developers.google.com/protocol-buffers/docs/encoding)
-///
-/// This code has been stolen with love from [rust-protobuf](https://github.com/stepancheg/rust-protobuf/blob/681462cc2a7068a2ff4111bbf19861c005c38225/protobuf/src/varint.rs)
-///
-/// (With some modifications.)
 
 /// Encode u64 using LEB - https://en.wikipedia.org/wiki/LEB128.
 /// The encoder is based on Google's encoder for protobuf.

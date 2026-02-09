@@ -1,10 +1,10 @@
+//! This file contains debugging assertions to validate the document's internal state.
+//!
+//! This is used during fuzzing to make sure everything is working properly, and if not, find bugs
+//! as early as possible.
+
 use jumprope::JumpRope;
 use crate::list::{ListBranch, ListCRDT, ListOpLog};
-
-/// This file contains debugging assertions to validate the document's internal state.
-///
-/// This is used during fuzzing to make sure everything is working properly, and if not, find bugs
-/// as early as possible.
 
 impl ListBranch {
     #[allow(unused)]

@@ -1,13 +1,13 @@
-/// The conflict graph is a convenient data structure for parts of the code that need to do complex
-/// operations with the causal graph.
-///
-/// It combines functionality from:
-///
-/// - find_conflicts
-/// - SimpleGraph
-/// - (eventually) subgraph
-///
-/// and it allows callers to add extra fields on each returned item.
+//! The conflict graph is a convenient data structure for parts of the code that need to do complex
+//! operations with the causal graph.
+//!
+//! It combines functionality from:
+//!
+//! - find_conflicts
+//! - SimpleGraph
+//! - (eventually) subgraph
+//!
+//! and it allows callers to add extra fields on each returned item.
 
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;

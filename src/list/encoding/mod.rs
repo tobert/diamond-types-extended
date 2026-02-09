@@ -1,6 +1,6 @@
-/// This module contains the old (original) text encoding format code. This code is used by
-/// some early applications written using diamond types. It will probably be moved behind a feature
-/// flag once the new encoding code gets written.
+//! This module contains the old (original) text encoding format code. This code is used by
+//! some early applications written using diamond types. It will probably be moved behind a feature
+//! flag once the new encoding code gets written.
 
 mod encode_oplog;
 mod decode_oplog;

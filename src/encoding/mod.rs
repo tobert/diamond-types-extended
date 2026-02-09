@@ -1,12 +1,12 @@
+//! The encoding module converts the internal data structures to and from a lossless compact binary
+//! data format.
+//!
+//! This is modelled after the run-length encoding in Automerge and Yjs.
+
 use std::marker::PhantomData;
 use std::mem::replace;
 use rle::MergableSpan;
 use num_enum::TryFromPrimitive;
-
-/// The encoding module converts the internal data structures to and from a lossless compact binary
-/// data format.
-///
-/// This is modelled after the run-length encoding in Automerge and Yjs.
 
 // Notes for next time I break compatibility:
 // - Version in encode::write_local_version - skip second 0 if its ROOT.

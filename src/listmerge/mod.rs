@@ -5,10 +5,10 @@
 //! There's a bunch of ways this code could be written:
 //!
 //! 1. We could store the content tree + position map in the same structure or separately (as in
-//! PositionMap in dt-crdt)
+//!    PositionMap in dt-crdt)
 //! 2. When moving around, we could either scan the list and rewrite it (activating and deactivating
-//! entries as we go). Or we could figure it out by walking the txns forwards and backwards through
-//! time.
+//!    entries as we go). Or we could figure it out by walking the txns forwards and backwards through
+//!    time.
 
 use crate::listmerge::markers::Marker;
 use crate::listmerge::yjsspan::CRDTSpan;
