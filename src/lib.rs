@@ -45,16 +45,11 @@
 //!
 //! ```ignore
 //! // Peer A creates some changes
-//! let ops = doc_a.ops_since(&[]).into_owned();
+//! let ops = doc_a.ops_since(&Frontier::root()).into_owned();
 //!
 //! // Peer B merges them
 //! doc_b.merge_ops(ops)?;
 //! ```
-//!
-//! ## Legacy API
-//!
-//! The original diamond-types API is still available via the [`list`] module for
-//! text-only use cases. See [`list::ListCRDT`] and [`list::ListOpLog`].
 //!
 //! ## Attribution
 //!
@@ -71,14 +66,16 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smartstring::alias::String as SmartString;
 
-pub use ::rle::HasLength;
+// HasLength is used by internal modules via `use rle::HasLength`
+#[allow(unused_imports)]
+pub(crate) use ::rle::HasLength;
 use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
 use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteVersionOwned};
 use crate::causalgraph::agent_span::AgentVersion;
-pub use crate::causalgraph::CausalGraph;
-pub use crate::dtrange::DTRange;
+pub(crate) use crate::causalgraph::CausalGraph;
+pub(crate) use crate::dtrange::DTRange;
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
 
 use crate::rle::{KVPair, RleVec};
@@ -102,29 +99,28 @@ pub use muts::{MapMut, TextMut, SetMut};
 // and unused items that we preserve for compatibility. Dead code warnings are
 // suppressed at the module level rather than per-item.
 #[allow(dead_code)]
-pub mod list;
+pub(crate) mod list;
 #[allow(dead_code)]
-pub mod register;
+pub(crate) mod register;
 #[allow(dead_code)]
-pub mod map;
+pub(crate) mod map;
 #[allow(dead_code)]
-pub mod set;
+pub(crate) mod set;
 
-#[doc(hidden)]
 #[allow(dead_code)]
-pub mod rle;
+pub(crate) mod rle;
 #[allow(dead_code)]
 mod dtrange;
 mod unicount;
 #[allow(dead_code)]
 mod rev_range;
 #[allow(dead_code)]
-pub mod frontier;
+pub(crate) mod frontier;
 mod check;
 #[allow(dead_code)]
 pub(crate) mod encoding;
 #[allow(dead_code)]
-pub mod causalgraph;
+pub(crate) mod causalgraph;
 #[allow(dead_code)]
 mod wal;
 #[allow(dead_code)]
@@ -166,7 +162,7 @@ pub type LV = usize;
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum Primitive {
+pub(crate) enum Primitive {
     Nil,
     Bool(bool),
     I64(i64),
@@ -174,6 +170,7 @@ pub enum Primitive {
     Str(SmartString),
 
     #[cfg_attr(feature = "serde", serde(skip))]
+    #[allow(dead_code)]
     InvalidUninitialized,
 }
 
@@ -194,9 +191,10 @@ impl Debug for Primitive {
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // #[repr(u16)]
-pub enum CRDTKind {
+pub(crate) enum CRDTKind {
     Map,        // String => Register (like a JS object)
     Register,   // Single LWW value
+    #[allow(dead_code)]
     Collection, // SQL table / mongo collection
     Text,       // Text/sequence CRDT
     Set,        // OR-Set (add-wins semantics)
@@ -204,7 +202,7 @@ pub enum CRDTKind {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum CreateValue {
+pub(crate) enum CreateValue {
     Primitive(Primitive),
     NewCRDT(CRDTKind),
     // Deleted, // Marks that the key / contents should be deleted.
@@ -248,8 +246,9 @@ pub enum CreateValue {
 //     list_ctx: ListOperationCtx,
 // }
 
-pub const ROOT_CRDT_ID: LV = usize::MAX;
-pub const ROOT_CRDT_ID_AV: AgentVersion = (AgentId::MAX, 0);
+pub(crate) const ROOT_CRDT_ID: LV = usize::MAX;
+#[allow(dead_code)]
+pub(crate) const ROOT_CRDT_ID_AV: AgentVersion = (AgentId::MAX, 0);
 
 
 // #[derive(Debug, Clone, Eq, PartialEq)]
@@ -294,15 +293,15 @@ pub(crate) struct RegisterInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RegisterValue {
+pub(crate) enum RegisterValue {
     Primitive(Primitive),
     OwnedCRDT(CRDTKind, LVKey),
 }
 
 
 #[derive(Debug, Clone, Default)]
-pub struct OpLog {
-    pub cg: CausalGraph,
+pub(crate) struct OpLog {
+    pub(crate) cg: CausalGraph,
 
 
     // cg_storage: Option<CGStorage>,
@@ -339,29 +338,29 @@ pub struct OpLog {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Branch {
-    pub frontier: Frontier,
+pub(crate) struct Branch {
+    pub(crate) frontier: Frontier,
 
     // Objects are always created at the highest version ID, but can be deleted anywhere in the
     // range.
     //
     // TODO: Replace BTreeMap with something more appropriate later.
     maps: BTreeMap<LVKey, BTreeMap<SmartString, RegisterState>>, // any objects.
-    pub texts: BTreeMap<LVKey, JumpRopeBuf>,
+    pub(crate) texts: BTreeMap<LVKey, JumpRopeBuf>,
     /// Standalone registers (not inside maps).
-    pub registers: BTreeMap<LVKey, RegisterState>,
+    pub(crate) registers: BTreeMap<LVKey, RegisterState>,
     /// OR-Sets storing Primitive values.
-    pub sets: BTreeMap<LVKey, BTreeSet<Primitive>>,
+    pub(crate) sets: BTreeMap<LVKey, BTreeSet<Primitive>>,
 }
 
 /// The register stores the specified value, but if conflicts_with is not empty, it has some
 /// conflicting concurrent values too. The `value` field will be consistent across all peers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RegisterState {
+pub(crate) struct RegisterState {
     /// The winning value according to LWW semantics.
-    pub value: RegisterValue,
+    pub(crate) value: RegisterValue,
     /// Any concurrent values that lost the LWW tie-break.
-    pub conflicts_with: Vec<RegisterValue>,
+    pub(crate) conflicts_with: Vec<RegisterValue>,
 }
 
 #[derive(Debug, Clone)]
@@ -420,7 +419,7 @@ pub struct SerializedOpsOwned {
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum DTValue {
+pub(crate) enum DTValue {
     Primitive(Primitive),
     /// A register containing a value (which could be a nested CRDT).
     Register(Box<DTValue>),

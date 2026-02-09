@@ -52,7 +52,6 @@ use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::register::RegisterInfo;
 use crate::{CRDTKind, CreateValue, LV, Primitive, RegisterValue};
 
-pub use ops::MapOp;
 
 /// A value that can be stored in a map entry.
 ///

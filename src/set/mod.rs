@@ -35,7 +35,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::LV;
 
-pub use ops::SetOp;
 
 /// A tag representing a single "add" of an element.
 ///

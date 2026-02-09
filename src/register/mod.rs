@@ -31,7 +31,6 @@ use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::causalgraph::graph::Graph;
 use crate::{CreateValue, LV, RegisterValue};
 
-pub use ops::RegisterOp;
 
 /// Information about a register stored in the OpLog.
 ///

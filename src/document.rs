@@ -318,6 +318,8 @@ impl Document {
     /// let state = doc.checkout();
     /// // state is a BTreeMap with the full document tree
     /// ```
+    // TODO: Step 5 will replace this with MaterializedValue
+    #[allow(private_interfaces)]
     pub fn checkout(&self) -> BTreeMap<SmartString, Box<DTValue>> {
         self.oplog.checkout()
     }
@@ -325,18 +327,14 @@ impl Document {
     // ============ Internal access (for advanced use) ============
 
     /// Get a reference to the underlying OpLog.
-    ///
-    /// This is for advanced users who need direct access to the CRDT internals.
-    #[doc(hidden)]
-    pub fn oplog(&self) -> &OpLog {
+    #[allow(dead_code)]
+    pub(crate) fn oplog(&self) -> &OpLog {
         &self.oplog
     }
 
     /// Get a mutable reference to the underlying OpLog.
-    ///
-    /// This is for advanced users who need direct access to the CRDT internals.
-    #[doc(hidden)]
-    pub fn oplog_mut(&mut self) -> &mut OpLog {
+    #[allow(dead_code)]
+    pub(crate) fn oplog_mut(&mut self) -> &mut OpLog {
         &mut self.oplog
     }
 }
