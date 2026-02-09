@@ -454,7 +454,7 @@ impl<V: Default + IndexContent> IndexTree<V> {
     }
 
     #[inline]
-    fn leaf_upper_bound_2(leaves: &Vec<IndexLeaf<V>>, leaf: &IndexLeaf<V>) -> LV {
+    fn leaf_upper_bound_2(leaves: &[IndexLeaf<V>], leaf: &IndexLeaf<V>) -> LV {
         if leaf.is_last() {
             usize::MAX
         } else {
@@ -603,7 +603,7 @@ impl<V: Default + IndexContent> IndexTree<V> {
 
     /// After the first item in a leaf has been modified, we need to walk up the node tree to update
     /// the start LV values.
-    fn recursively_update_nodes(nodes: &mut Vec<IndexNode>, mut node_idx: NodeIdx, mut child: usize, new_start: LV) {
+    fn recursively_update_nodes(nodes: &mut [IndexNode], mut node_idx: NodeIdx, mut child: usize, new_start: LV) {
         while node_idx.0 != usize::MAX {
             let node = &mut nodes[node_idx.0];
             let child_idx = Self::find_child_idx_in_node(node, child);

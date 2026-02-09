@@ -4,7 +4,7 @@ use diamond_types_extended::list::operation::TextOperation;
 use rle::AppendRle;
 
 #[inline(always)]
-pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
+pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &[TestTxn]) {
     let id = doc.get_or_create_agent_id("jeremy");
 
     for txn in txns.iter() {
@@ -22,7 +22,7 @@ pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 }
 
 #[inline(always)]
-pub fn apply_edits_push_merge(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
+pub fn apply_edits_push_merge(doc: &mut ListCRDT, txns: &[TestTxn]) {
     let id = doc.get_or_create_agent_id("jeremy");
 
     for txn in txns.iter() {
@@ -44,7 +44,7 @@ pub fn apply_edits_push_merge(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 }
 
 #[inline(always)]
-pub fn apply_grouped(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
+pub fn apply_grouped(doc: &mut ListCRDT, txns: &[TestTxn]) {
     let id = doc.get_or_create_agent_id("jeremy");
 
     let mut ops: Vec<TextOperation> = Vec::new();
@@ -66,7 +66,7 @@ pub fn apply_grouped(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 }
 
 #[inline(always)]
-pub fn as_grouped_ops_rle(txns: &Vec<TestTxn>) -> Vec<TextOperation> {
+pub fn as_grouped_ops_rle(txns: &[TestTxn]) -> Vec<TextOperation> {
     let mut ops: Vec<TextOperation> = Vec::new();
 
     for txn in txns.iter() {

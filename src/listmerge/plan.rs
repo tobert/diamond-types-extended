@@ -777,8 +777,7 @@ impl M1Plan {
     }
 
     pub(crate) fn dbg_print(&self) {
-        let mut i = 0;
-        for a in self.0.iter() {
+        for (i, a) in self.0.iter().enumerate() {
             match a {
                 M1PlanAction::Retreat(span) => {
                     println!("{i}: --- deactivate {:?}", span);
@@ -799,7 +798,6 @@ impl M1Plan {
                     println!("{i}: ========== BEGIN OUTPUT =========");
                 }
             }
-            i += 1;
         }
     }
 }

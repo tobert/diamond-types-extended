@@ -42,7 +42,6 @@ impl CausalGraph {
             // Discard any other entries from queue which name the same txn
 
             while let Some(peek_ord) = queue.peek() {
-                let peek_ord = peek_ord;
                 if *peek_ord >= containing_txn.span.start {
                     queue.pop();
                 } else {

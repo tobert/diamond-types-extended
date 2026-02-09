@@ -214,7 +214,7 @@ impl<T: SplitableSpan + HasLength> Iterator for Shatter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(val) = self.0.as_mut() else { return None; };
+        let val = self.0.as_mut()?;
 
         if val.len() > 1 {
             Some(val.truncate_keeping_right(1))
