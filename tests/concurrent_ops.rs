@@ -6,10 +6,10 @@
 //!
 //! Test coverage informed by Gemini review recommendations.
 
-use diamond_types_extended::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
 
 mod helpers {
-    use diamond_types_extended::Document;
+    use diamond_types_extended::{Document, Frontier};
 
     /// Assert documents have converged (same content).
     ///
@@ -27,8 +27,8 @@ mod helpers {
 
     /// Cross-sync two documents (A↔B) and verify convergence
     pub fn cross_sync(a: &mut Document, b: &mut Document) {
-        let ops_a = a.ops_since(&[]).into();
-        let ops_b = b.ops_since(&[]).into();
+        let ops_a = a.ops_since(&Frontier::root()).into();
+        let ops_b = b.ops_since(&Frontier::root()).into();
         b.merge_ops(ops_a).unwrap();
         a.merge_ops(ops_b).unwrap();
         assert_converged(a, b);
@@ -36,8 +36,8 @@ mod helpers {
 
     /// Sync a pair of documents by index (for use with arrays)
     pub fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
-        let ops_a = docs[a].ops_since(&[]).into();
-        let ops_b = docs[b].ops_since(&[]).into();
+        let ops_a = docs[a].ops_since(&Frontier::root()).into();
+        let ops_b = docs[b].ops_since(&Frontier::root()).into();
         docs[b].merge_ops(ops_a).unwrap();
         docs[a].merge_ops(ops_b).unwrap();
     }
@@ -93,7 +93,7 @@ fn access_path_before_and_after_merge() {
     assert!(doc_b.get_map(&["data"]).is_none());
 
     // After merge, Bob can see it
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
     assert!(doc_b.get_map(&["data"]).is_some());
     assert_eq!(
@@ -129,7 +129,7 @@ fn text_sequential_sync_roundtrip() {
     });
 
     // Sync to Bob
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Bob appends (sequential, not concurrent)
@@ -139,7 +139,7 @@ fn text_sequential_sync_roundtrip() {
 
     // Sync back to Alice
     let bob_version = doc_a.version().clone();
-    let ops_b = doc_b.ops_since(bob_version.as_ref()).into();
+    let ops_b = doc_b.ops_since(&bob_version).into();
     doc_a.merge_ops(ops_b).unwrap();
 
     // Both should have same text now
@@ -166,7 +166,7 @@ fn concurrent_text_overlapping_edits() {
     doc_a.transact(alice, |tx| {
         tx.get_text_mut(&["doc"]).unwrap().insert(0, "Hello world");
     });
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Alice deletes "world", Bob inserts in middle
@@ -211,9 +211,9 @@ fn merge_order_independence_three_peers() {
         tx.root().set("from", "carol");
     });
 
-    let ops_a: SerializedOpsOwned = doc_a.ops_since(&[]).into();
-    let ops_b: SerializedOpsOwned = doc_b.ops_since(&[]).into();
-    let ops_c: SerializedOpsOwned = doc_c.ops_since(&[]).into();
+    let ops_a: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
+    let ops_c: SerializedOpsOwned = doc_c.ops_since(&Frontier::root()).into();
 
     // Different merge orders
     let mut test1 = Document::new();
@@ -256,7 +256,7 @@ fn diamond_merge_converges() {
     });
 
     // Fork to B and C
-    let ops_origin: SerializedOpsOwned = origin.ops_since(&[]).into();
+    let ops_origin: SerializedOpsOwned = origin.ops_since(&Frontier::root()).into();
     let mut doc_b = Document::new();
     let mut doc_c = Document::new();
     doc_b.merge_ops(ops_origin.clone()).unwrap();
@@ -345,7 +345,7 @@ fn ops_are_idempotent() {
         tx.root().set("number", 42i64);
     });
 
-    let ops: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
 
     // Apply once
     doc_b.merge_ops(ops.clone()).unwrap();
@@ -380,7 +380,7 @@ fn self_merge_is_noop() {
     });
 
     let version_before = doc.version().clone();
-    let ops: SerializedOpsOwned = doc.ops_since(&[]).into();
+    let ops: SerializedOpsOwned = doc.ops_since(&Frontier::root()).into();
 
     // Self-merge
     doc.merge_ops(ops).unwrap();
@@ -456,7 +456,7 @@ fn set_concurrent_add_and_remove() {
     });
 
     // Sync to Bob
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Concurrent: Alice removes, Bob adds the same item
@@ -505,7 +505,7 @@ fn set_concurrent_different_items() {
     });
 
     // Sync to Bob
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Concurrent: Alice and Bob add different items
@@ -559,7 +559,7 @@ fn multi_agent_offline_reconnect_convergence() {
     });
 
     // Sync initial state to all
-    let initial_ops: SerializedOpsOwned = docs[0].ops_since(&[]).into();
+    let initial_ops: SerializedOpsOwned = docs[0].ops_since(&Frontier::root()).into();
     for doc in docs.iter_mut().skip(1) {
         doc.merge_ops(initial_ops.clone()).unwrap();
     }

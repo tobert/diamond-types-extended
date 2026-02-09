@@ -3,12 +3,12 @@
 //! These tests specifically exercise the agent boundary splitting and LV mapping
 //! logic that was fixed in the convergence bug patch.
 
-use diamond_types_extended::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
 
 /// Sync helper: cross-sync two documents
 fn cross_sync(a: &mut Document, b: &mut Document) {
-    let ops_a: SerializedOpsOwned = a.ops_since(&[]).into();
-    let ops_b: SerializedOpsOwned = b.ops_since(&[]).into();
+    let ops_a: SerializedOpsOwned = a.ops_since(&Frontier::root()).into();
+    let ops_b: SerializedOpsOwned = b.ops_since(&Frontier::root()).into();
     b.merge_ops(ops_a).unwrap();
     a.merge_ops(ops_b).unwrap();
 }
@@ -52,7 +52,7 @@ fn test_agent_boundary_splitting_zebra() {
     });
 
     // Initial sync so Bob has the text field
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Alternate appending: A, B, A, B, A, B, A, B, A, B
@@ -84,7 +84,7 @@ fn test_agent_boundary_splitting_zebra() {
     // Sync full history from Alice to Carol
     // This is where agent boundary splitting matters: Alice's local RLE may
     // have merged the chars, but ops_since must split by agent
-    let ops_to_carol: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops_to_carol: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_c.merge_ops(ops_to_carol).unwrap();
 
     // Carol should have the same content
@@ -122,7 +122,7 @@ fn test_non_contiguous_lv_merging() {
 
     // Sync Part1 to Bob and remember Alice's version at this point
     let alice_version_after_part1 = doc_a.version().clone();
-    let ops_part1: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops_part1: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_part1).unwrap();
 
     // Bob does 100+ unrelated map operations (burning LVs)
@@ -140,7 +140,7 @@ fn test_non_contiguous_lv_merging() {
 
     // Sync Part2 to Bob using Alice's version that Bob knows about
     // (ops_since must be called with a version the source doc knows about)
-    let ops_part2: SerializedOpsOwned = doc_a.ops_since(alice_version_after_part1.as_ref()).into();
+    let ops_part2: SerializedOpsOwned = doc_a.ops_since(&alice_version_after_part1).into();
     doc_b.merge_ops(ops_part2).unwrap();
 
     // Verify Bob has complete text
@@ -151,7 +151,7 @@ fn test_non_contiguous_lv_merging() {
     // From Bob's view, "Part1Part2" is contiguous text but maps to widely
     // separated LVs (e.g., 0-5 and 150-156 due to the 120 map ops in between)
     let mut doc_c = Document::new();
-    let ops_to_carol: SerializedOpsOwned = doc_b.ops_since(&[]).into();
+    let ops_to_carol: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
     doc_c.merge_ops(ops_to_carol).unwrap();
 
     // Carol should have the complete text
@@ -183,7 +183,7 @@ fn test_interleaved_text_and_map_ops() {
     });
 
     // Sync to Bob
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Interleave text appends with map ops (simulates a real app log)
@@ -220,7 +220,7 @@ fn test_interleaved_text_and_map_ops() {
 
     // Sync to fresh peer
     let mut doc_c = Document::new();
-    let ops_to_c: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops_to_c: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_c.merge_ops(ops_to_c).unwrap();
 
     let text_c = doc_c.root().get_text("log").unwrap().content();
@@ -258,7 +258,7 @@ fn test_multi_hop_sync_attribution() {
     });
 
     // Sync A -> B (Bob receives Alice's content)
-    let ops_a_to_b: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops_a_to_b: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a_to_b).unwrap();
 
     // Bob adds his own content
@@ -271,7 +271,7 @@ fn test_multi_hop_sync_attribution() {
 
     // Now Bob syncs to Carol (B -> C)
     // Carol should receive both Alice's and Bob's ops correctly attributed
-    let ops_b_to_c: SerializedOpsOwned = doc_b.ops_since(&[]).into();
+    let ops_b_to_c: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
     doc_c.merge_ops(ops_b_to_c).unwrap();
 
     // Verify Carol has correct content
@@ -295,10 +295,10 @@ fn test_multi_hop_sync_attribution() {
     });
 
     // Sync back: C -> B -> A
-    let ops_c_to_b: SerializedOpsOwned = doc_c.ops_since(&[]).into();
+    let ops_c_to_b: SerializedOpsOwned = doc_c.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_c_to_b).unwrap();
 
-    let ops_b_to_a: SerializedOpsOwned = doc_b.ops_since(&[]).into();
+    let ops_b_to_a: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
     doc_a.merge_ops(ops_b_to_a).unwrap();
 
     // Verify final content has all three contributions
@@ -333,7 +333,7 @@ fn test_long_chain_sync_attribution() {
     // Chain sync: each peer receives from previous, adds content, passes to next
     for i in 1..5 {
         // Sync from previous peer
-        let ops: SerializedOpsOwned = docs[i - 1].ops_since(&[]).into();
+        let ops: SerializedOpsOwned = docs[i - 1].ops_since(&Frontier::root()).into();
         docs[i].merge_ops(ops).unwrap();
 
         // Add this peer's contribution
@@ -351,7 +351,7 @@ fn test_long_chain_sync_attribution() {
     assert_eq!(final_text, "ABCDE", "Final peer should have all contributions");
 
     // Sync back to first peer
-    let ops_back: SerializedOpsOwned = docs[4].ops_since(&[]).into();
+    let ops_back: SerializedOpsOwned = docs[4].ops_since(&Frontier::root()).into();
     docs[0].merge_ops(ops_back).unwrap();
 
     // Alice should now have the complete chain
@@ -378,7 +378,7 @@ fn test_agent_id_preservation_through_hops() {
     });
 
     // A -> B
-    let ops: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Bob adds content
@@ -387,7 +387,7 @@ fn test_agent_id_preservation_through_hops() {
     });
 
     // B -> C (Carol is fresh, receives everything through Bob)
-    let ops: SerializedOpsOwned = doc_b.ops_since(&[]).into();
+    let ops: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
     doc_c.merge_ops(ops).unwrap();
 
     // Verify content

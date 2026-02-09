@@ -1,6 +1,6 @@
 //! Integration tests for replication/sync
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Frontier};
 
 #[test]
 fn test_two_peer_sync_map() {
@@ -21,11 +21,11 @@ fn test_two_peer_sync_map() {
     });
 
     // Sync A -> B
-    let ops_a = doc_a.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
 
     // Sync B -> A
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_a.merge_ops(ops_b).unwrap();
 
     // Both should have both keys
@@ -60,7 +60,7 @@ fn test_two_peer_sync_text() {
     });
 
     // Sync A -> B
-    let ops_a = doc_a.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
 
     // Bob should see the text
@@ -82,7 +82,7 @@ fn test_two_peer_sync_set() {
     });
 
     // Sync to Bob so he knows about the set
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Both add items
@@ -99,8 +99,8 @@ fn test_two_peer_sync_set() {
     });
 
     // Cross-sync
-    let ops_a = doc_a.ops_since(&[]).into();
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 
@@ -126,7 +126,7 @@ fn test_incremental_sync() {
         tx.root().set("v1", "first");
     });
 
-    let ops1 = doc_a.ops_since(&[]).into();
+    let ops1 = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops1).unwrap();
 
     // Remember B's version
@@ -138,7 +138,7 @@ fn test_incremental_sync() {
     });
 
     // Only sync new changes (from B's perspective)
-    let ops2 = doc_a.ops_since(b_version.as_ref()).into();
+    let ops2 = doc_a.ops_since(&b_version).into();
     doc_b.merge_ops(ops2).unwrap();
 
     // B should have both
@@ -164,8 +164,8 @@ fn test_convergence_after_concurrent_edits() {
     });
 
     // Cross-sync
-    let ops_a = doc_a.ops_since(&[]).into();
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 

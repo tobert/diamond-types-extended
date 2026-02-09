@@ -2,11 +2,11 @@
 //!
 //! After full mesh sync, documents have different text content.
 
-use diamond_types_extended::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
 
 fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
-    let ops_a: SerializedOpsOwned = docs[a].ops_since(&[]).into();
-    let ops_b: SerializedOpsOwned = docs[b].ops_since(&[]).into();
+    let ops_a: SerializedOpsOwned = docs[a].ops_since(&Frontier::root()).into();
+    let ops_b: SerializedOpsOwned = docs[b].ops_since(&Frontier::root()).into();
     docs[b].merge_ops(ops_a).unwrap();
     docs[a].merge_ops(ops_b).unwrap();
 }
@@ -30,7 +30,7 @@ fn minimal_three_way_text_divergence() {
         tx.get_text_mut(&["doc"]).unwrap().insert(0, "Hello");
     });
 
-    let initial_ops: SerializedOpsOwned = docs[0].ops_since(&[]).into();
+    let initial_ops: SerializedOpsOwned = docs[0].ops_since(&Frontier::root()).into();
     docs[1].merge_ops(initial_ops.clone()).unwrap();
     docs[2].merge_ops(initial_ops).unwrap();
 
@@ -86,7 +86,7 @@ fn two_peer_concurrent_append() {
         tx.get_text_mut(&["doc"]).unwrap().insert(0, "Hello");
     });
 
-    let ops: SerializedOpsOwned = doc_a.ops_since(&[]).into();
+    let ops: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Concurrent appends
@@ -98,8 +98,8 @@ fn two_peer_concurrent_append() {
     });
 
     // Cross sync
-    let ops_a: SerializedOpsOwned = doc_a.ops_since(&[]).into();
-    let ops_b: SerializedOpsOwned = doc_b.ops_since(&[]).into();
+    let ops_a: SerializedOpsOwned = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b: SerializedOpsOwned = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 

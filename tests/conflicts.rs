@@ -1,6 +1,6 @@
 //! Integration tests for conflict handling
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Frontier};
 
 #[test]
 fn test_lww_conflict_detection() {
@@ -20,8 +20,8 @@ fn test_lww_conflict_detection() {
     });
 
     // Sync both ways
-    let ops_a = doc_a.ops_since(&[]).into();
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 
@@ -80,7 +80,7 @@ fn test_set_add_wins_semantics() {
     });
 
     // Sync to Bob
-    let ops = doc_a.ops_since(&[]).into();
+    let ops = doc_a.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops).unwrap();
 
     // Alice removes the item (she has observed it)
@@ -98,8 +98,8 @@ fn test_set_add_wins_semantics() {
     });
 
     // Sync
-    let ops_a = doc_a.ops_since(&[]).into();
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 
@@ -144,8 +144,8 @@ fn test_nested_crdt_conflict() {
     });
 
     // Sync
-    let ops_a = doc_a.ops_since(&[]).into();
-    let ops_b = doc_b.ops_since(&[]).into();
+    let ops_a = doc_a.ops_since(&Frontier::root()).into();
+    let ops_b = doc_b.ops_since(&Frontier::root()).into();
     doc_b.merge_ops(ops_a).unwrap();
     doc_a.merge_ops(ops_b).unwrap();
 

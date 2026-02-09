@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example sync
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Frontier};
 
 fn main() {
     println!("=== Diamond Types Extended Sync Example ===\n");
@@ -43,7 +43,7 @@ fn main() {
 
     // Sync Alice -> Bob (initial sync)
     println!("\nSyncing Alice -> Bob...");
-    let ops_alice = doc_alice.ops_since(&[]).into();
+    let ops_alice = doc_alice.ops_since(&Frontier::root()).into();
     doc_bob.merge_ops(ops_alice).unwrap();
 
     println!("Bob's document after sync:");
@@ -99,8 +99,8 @@ fn main() {
     // Cross-sync
     println!("\n=== Cross-Sync ===\n");
 
-    let ops_alice = doc_alice.ops_since(&[]).into();
-    let ops_bob = doc_bob.ops_since(&[]).into();
+    let ops_alice = doc_alice.ops_since(&Frontier::root()).into();
+    let ops_bob = doc_bob.ops_since(&Frontier::root()).into();
 
     doc_bob.merge_ops(ops_alice).unwrap();
     doc_alice.merge_ops(ops_bob).unwrap();

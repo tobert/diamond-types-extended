@@ -4,7 +4,7 @@
 //! `merge_ops` (deserialization) to detect regressions from the agent-splitting fix.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use diamond_types_extended::{Document, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
 
 /// Build a document with many text operations from a single agent
 fn build_single_agent_document(num_ops: usize) -> Document {
@@ -86,12 +86,12 @@ fn bench_sync_throughput(c: &mut Criterion) {
 
     // Single agent document (baseline)
     let single_agent_doc = build_single_agent_document(1000);
-    let single_agent_ops: SerializedOpsOwned = single_agent_doc.ops_since(&[]).into();
+    let single_agent_ops: SerializedOpsOwned = single_agent_doc.ops_since(&Frontier::root()).into();
 
     group.throughput(Throughput::Elements(1000));
 
     group.bench_function("serialize_single_agent_1k", |b| {
-        b.iter(|| black_box(single_agent_doc.ops_since(&[])))
+        b.iter(|| black_box(single_agent_doc.ops_since(&Frontier::root())))
     });
 
     group.bench_function("merge_single_agent_1k", |b| {
@@ -106,10 +106,10 @@ fn bench_sync_throughput(c: &mut Criterion) {
 
     // Multi-agent document (stresses agent boundary splitting)
     let multi_agent_doc = build_multi_agent_document(1000);
-    let multi_agent_ops: SerializedOpsOwned = multi_agent_doc.ops_since(&[]).into();
+    let multi_agent_ops: SerializedOpsOwned = multi_agent_doc.ops_since(&Frontier::root()).into();
 
     group.bench_function("serialize_multi_agent_1k", |b| {
-        b.iter(|| black_box(multi_agent_doc.ops_since(&[])))
+        b.iter(|| black_box(multi_agent_doc.ops_since(&Frontier::root())))
     });
 
     group.bench_function("merge_multi_agent_1k", |b| {
@@ -124,10 +124,10 @@ fn bench_sync_throughput(c: &mut Criterion) {
 
     // Mixed operations document (non-contiguous LVs)
     let mixed_doc = build_mixed_ops_document(1000);
-    let mixed_ops: SerializedOpsOwned = mixed_doc.ops_since(&[]).into();
+    let mixed_ops: SerializedOpsOwned = mixed_doc.ops_since(&Frontier::root()).into();
 
     group.bench_function("serialize_mixed_ops_1k", |b| {
-        b.iter(|| black_box(mixed_doc.ops_since(&[])))
+        b.iter(|| black_box(mixed_doc.ops_since(&Frontier::root())))
     });
 
     group.bench_function("merge_mixed_ops_1k", |b| {
@@ -151,7 +151,7 @@ fn bench_incremental_sync(c: &mut Criterion) {
     let agent = source.get_or_create_agent("benchmark_agent");
 
     // Get ops for first half
-    let first_half: SerializedOpsOwned = source.ops_since(&[]).into();
+    let first_half: SerializedOpsOwned = source.ops_since(&Frontier::root()).into();
 
     // Add more ops
     for i in 500..1000 {
@@ -170,17 +170,17 @@ fn bench_incremental_sync(c: &mut Criterion) {
 
     // Benchmark incremental serialization
     group.bench_function("serialize_incremental_500", |b| {
-        b.iter(|| black_box(source.ops_since(synced_version.as_ref())))
+        b.iter(|| black_box(source.ops_since(&synced_version)))
     });
 
     // Benchmark incremental merge
-    let incremental_ops: SerializedOpsOwned = source.ops_since(synced_version.as_ref()).into();
+    let incremental_ops: SerializedOpsOwned = source.ops_since(&synced_version).into();
 
     group.bench_function("merge_incremental_500", |b| {
         b.iter_with_setup(
             || {
                 let mut peer = Document::new();
-                let first_half: SerializedOpsOwned = build_single_agent_document(500).ops_since(&[]).into();
+                let first_half: SerializedOpsOwned = build_single_agent_document(500).ops_since(&Frontier::root()).into();
                 peer.merge_ops(first_half).unwrap();
                 peer
             },
@@ -199,12 +199,12 @@ fn bench_scaling(c: &mut Criterion) {
 
     for size in [100, 500, 1000, 2000] {
         let doc = build_single_agent_document(size);
-        let ops: SerializedOpsOwned = doc.ops_since(&[]).into();
+        let ops: SerializedOpsOwned = doc.ops_since(&Frontier::root()).into();
 
         group.throughput(Throughput::Elements(size as u64));
 
         group.bench_function(format!("serialize_{}", size), |b| {
-            b.iter(|| black_box(doc.ops_since(&[])))
+            b.iter(|| black_box(doc.ops_since(&Frontier::root())))
         });
 
         group.bench_function(format!("merge_{}", size), |b| {

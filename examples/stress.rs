@@ -6,7 +6,7 @@
 //! # Architecture
 //!
 //! Multi-universe design for bounded memory:
-//! - U universes, each with its own set of OpLogs (one per peer)
+//! - U universes, each with its own set of Documents (one per peer)
 //! - Worker threads operate across all universes round-robin
 //! - Compactor thread monitors universe sizes
 //! - When a universe exceeds threshold, compactor:
@@ -49,7 +49,7 @@ use clap::Parser;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-use diamond_types_extended::{CRDTKind, CreateValue, Frontier, OpLog, Primitive, ROOT_CRDT_ID, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, PrimitiveValue, SerializedOpsOwned};
 
 // Universe states
 const STATE_RUNNING: u8 = 0;
@@ -157,14 +157,14 @@ enum OpType {
 
 /// Per-peer state within a universe
 struct PeerState {
-    oplog: OpLog,
+    doc: Document,
     agent_idx: usize, // Index into global agent_names
-    agent: u32,       // Local agent ID in the current oplog
+    agent: u32,       // Local agent ID in the current document
     last_broadcast_version: Frontier,
     set_created: bool,
 }
 
-/// A universe is a self-contained set of OpLogs that can be independently compacted
+/// A universe is a self-contained set of Documents that can be independently compacted
 struct Universe {
     /// Current state (Running or Compacting)
     state: AtomicU8,
@@ -220,18 +220,18 @@ impl Stats {
         let merges_per_sec = if secs > 0.0 { merges as f64 / secs } else { 0.0 };
 
         println!(
-            "⏱  {:>8.1}s │ ops: {:>12} ({:>10.0}/s) │ merges: {:>10} ({:>8.0}/s)",
+            "\u{23f1}  {:>8.1}s \u{2502} ops: {:>12} ({:>10.0}/s) \u{2502} merges: {:>10} ({:>8.0}/s)",
             secs, format_num(ops), ops_per_sec, format_num(merges), merges_per_sec
         );
         println!(
-            "            │ map: {:>12} │ set: {:>12} │ reg: {:>12} │ crash: {:>8}",
+            "            \u{2502} map: {:>12} \u{2502} set: {:>12} \u{2502} reg: {:>12} \u{2502} crash: {:>8}",
             format_num(self.map_ops.load(Ordering::Relaxed)),
             format_num(self.set_ops.load(Ordering::Relaxed)),
             format_num(self.register_ops.load(Ordering::Relaxed)),
             format_num(crashes),
         );
         println!(
-            "            │ compactions: {:>6} │ convergence checks: {:>6} ✓",
+            "            \u{2502} compactions: {:>6} \u{2502} convergence checks: {:>6} \u{2713}",
             compactions, checks
         );
     }
@@ -259,21 +259,21 @@ const NASTY_STRINGS: &[&str] = &[
     "\0",                       // Null
     "\n\r\t",                   // Control
     "embedded \" quote",        // Quote
-    "💾",                       // Emoji
-    "你好",                      // Unicode
-    "Ẓ̸̨̧̥̼͚̲̣̝̖̣͂ͪ̉̇̅̇̋ͬ̊̄̾ͨ̀̌ͬͪ̆ͮ̚͜", // Zalgo
-    "مرحبا",                    // RTL
+    "\u{1f4be}",                // Emoji (floppy disk)
+    "\u{4f60}\u{597d}",        // Unicode (Chinese)
+    "Z\u{0363}\u{0311}\u{0345}\u{0305}\u{030a}\u{0315}\u{0307}\u{036c}\u{0308}\u{034d}\u{030c}\u{0301}\u{0300}\u{030b}\u{036c}\u{030a}\u{036e}\u{030d}\u{036c}\u{030a}\u{0306}", // Zalgo
+    "\u{0645}\u{0631}\u{062d}\u{0628}\u{0627}", // RTL (Arabic)
 ];
 
 fn create_peer_state(agent_names: &[String], my_idx: usize) -> PeerState {
-    let mut oplog = OpLog::new();
-    // Pre-register all agents so IDs are somewhat stable (though not guaranteed across crashes)
+    let mut doc = Document::new();
+    // Pre-register all agents so IDs are somewhat stable
     for name in agent_names {
-        oplog.cg.get_or_create_agent_id(name);
+        doc.get_or_create_agent(name);
     }
-    let agent = oplog.cg.get_or_create_agent_id(&agent_names[my_idx]);
+    let agent = doc.get_or_create_agent(&agent_names[my_idx]);
     PeerState {
-        oplog,
+        doc,
         agent_idx: my_idx,
         agent,
         last_broadcast_version: Frontier::root(),
@@ -297,28 +297,41 @@ fn do_random_op(
             } else {
                 MAP_KEYS[thread_id % MAP_KEYS.len()]
             };
-            let value = CreateValue::Primitive(random_primitive(rng));
-            peer.oplog.local_map_set(peer.agent, ROOT_CRDT_ID, key, value);
+            let value = random_primitive(rng);
+            let agent = peer.agent;
+            peer.doc.transact(agent, |tx| {
+                tx.root().set(key, value);
+            });
             stats.map_ops.fetch_add(1, Ordering::Relaxed);
         }
         OpType::Set => {
             if !peer.set_created {
-                peer.oplog.local_map_set(peer.agent, ROOT_CRDT_ID, "tags",
-                    CreateValue::NewCRDT(CRDTKind::Set));
+                let agent = peer.agent;
+                peer.doc.transact(agent, |tx| {
+                    tx.root().create_set("tags");
+                });
                 peer.set_created = true;
             }
-            let (_, set_id) = peer.oplog.crdt_at_path(&["tags"]);
 
+            let agent = peer.agent;
             if rng.gen_bool(0.7) {
-                let val = if rng.gen_bool(0.6) {
-                    Primitive::Str(SET_VALUES[rng.gen_range(0..SET_VALUES.len())].into())
+                let val: PrimitiveValue = if rng.gen_bool(0.6) {
+                    SET_VALUES[rng.gen_range(0..SET_VALUES.len())].into()
                 } else {
-                    Primitive::I64(rng.gen_range(0..1000))
+                    (rng.gen_range(0i64..1000)).into()
                 };
-                peer.oplog.local_set_add(peer.agent, set_id, val);
+                peer.doc.transact(agent, |tx| {
+                    if let Some(mut set) = tx.get_set_mut(&["tags"]) {
+                        set.add(val);
+                    }
+                });
             } else {
-                let val = Primitive::Str(SET_VALUES[rng.gen_range(0..SET_VALUES.len())].into());
-                peer.oplog.local_set_remove(peer.agent, set_id, val);
+                let val: String = SET_VALUES[rng.gen_range(0..SET_VALUES.len())].to_string();
+                peer.doc.transact(agent, |tx| {
+                    if let Some(mut set) = tx.get_set_mut(&["tags"]) {
+                        set.remove(val.as_str());
+                    }
+                });
             }
             stats.set_ops.fetch_add(1, Ordering::Relaxed);
         }
@@ -328,53 +341,49 @@ fn do_random_op(
             } else {
                 MAP_KEYS[thread_id % MAP_KEYS.len()]
             };
-            peer.oplog.local_map_set(peer.agent, ROOT_CRDT_ID, key,
-                CreateValue::Primitive(random_primitive(rng)));
+            let value = random_primitive(rng);
+            let agent = peer.agent;
+            peer.doc.transact(agent, |tx| {
+                tx.root().set(key, value);
+            });
             stats.register_ops.fetch_add(1, Ordering::Relaxed);
         }
         OpType::Crash => {
             // Simulate crash/restart:
             // 1. Serialize full state
-            // 2. Create fresh OpLog
+            // 2. Create fresh Document
             // 3. Merge serialized state
             // 4. Re-acquire agent ID
-            let full_ops: SerializedOpsOwned = peer.oplog.ops_since(&[]).into();
-            
-            let mut new_oplog = OpLog::new();
-            // Important: Pre-register all agents again to minimize ID shuffling
-            // (though merge_ops would handle it, this keeps things cleaner)
+            let full_ops: SerializedOpsOwned = peer.doc.ops_since(&Frontier::root()).into();
+
+            let mut new_doc = Document::new();
+            // Pre-register all agents again
             for name in agent_names {
-                new_oplog.cg.get_or_create_agent_id(name);
+                new_doc.get_or_create_agent(name);
             }
-            
+
             // Restore state
-            new_oplog.merge_ops_owned(full_ops).expect("Crash recovery failed: unable to merge own ops");
-            
-            peer.oplog = new_oplog;
-            peer.agent = peer.oplog.cg.get_or_create_agent_id(&agent_names[peer.agent_idx]);
-            // Reset broadcast cursor since we effectively have a "new" oplog,
-            // but to avoid resending everything, we set it to current version.
-            // In a real system we'd persist the cursor or re-handshake.
-            peer.last_broadcast_version = peer.oplog.cg.version.clone();
-            
+            new_doc.merge_ops(full_ops).expect("Crash recovery failed: unable to merge own ops");
+
+            peer.doc = new_doc;
+            peer.agent = peer.doc.get_or_create_agent(&agent_names[peer.agent_idx]);
+            // Reset broadcast cursor to current version
+            peer.last_broadcast_version = peer.doc.version().clone();
+
             stats.crashes.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
 
-fn random_primitive(rng: &mut SmallRng) -> Primitive {
+fn random_primitive(rng: &mut SmallRng) -> PrimitiveValue {
     match rng.gen_range(0..5) {
-        0 => Primitive::Nil,
-        1 => Primitive::Bool(rng.gen()),
-        2 => Primitive::I64(rng.gen()),
-        3 => {
-            // Normal string
-            Primitive::Str(format!("v{}", rng.gen::<u32>()).into())
-        }
+        0 => PrimitiveValue::Nil,
+        1 => PrimitiveValue::Bool(rng.gen()),
+        2 => PrimitiveValue::Int(rng.gen()),
+        3 => PrimitiveValue::Str(format!("v{}", rng.gen::<u32>())),
         _ => {
-            // Nasty string
             let s = NASTY_STRINGS[rng.gen_range(0..NASTY_STRINGS.len())];
-            Primitive::Str(s.into())
+            PrimitiveValue::Str(s.to_string())
         }
     }
 }
@@ -386,28 +395,24 @@ fn main() {
     if let Some(preset) = &args.preset {
         match preset.as_str() {
             "fast" => {
-                // Quick validation run
                 args.compact_at = 10_000;
                 args.max_universe_ops = 20_000;
                 args.broadcast_every = 10;
                 args.recv_every = 5;
                 args.stats_every = 1;
-                // No crashes in fast mode to ensure high throughput
-                args.op_mix = "34,33,33,0".to_string(); 
+                args.op_mix = "34,33,33,0".to_string();
             },
             "chaos" => {
-                // Maximum randomization and crashes
-                args.broadcast_every = 1; // Constant chatter
+                args.broadcast_every = 1;
                 args.recv_every = 1;
-                args.op_mix = "30,30,20,20".to_string(); // 20% crash rate!
+                args.op_mix = "30,30,20,20".to_string();
             },
             "endurance" => {
-                // Long running, low overhead
                 args.compact_at = 500_000;
                 args.max_universe_ops = 1_000_000;
                 args.broadcast_every = 1000;
                 args.recv_every = 500;
-                args.op_mix = "45,45,9,1".to_string(); // 1% crash rate
+                args.op_mix = "45,45,9,1".to_string();
             },
             _ => panic!("Unknown preset: {}. Valid: fast, chaos, endurance", preset),
         }
@@ -415,32 +420,30 @@ fn main() {
 
     let op_mix = OpMix::parse(&args.op_mix);
 
-    // Default max_universe_ops to 2x compact_at if not set
     if args.max_universe_ops == 0 {
         args.max_universe_ops = args.compact_at * 2;
     }
 
-    println!("🔥 Diamond Types Stress Test (Universe Rotation)");
-    println!("═══════════════════════════════════════════════════════════════════════════════");
-    println!("   Threads: {}  │  Universes: {}  │  Compact at: {} │  Max: {} ops",
+    println!("\u{1f525} Diamond Types Stress Test (Universe Rotation)");
+    println!("\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}");
+    println!("   Threads: {}  \u{2502}  Universes: {}  \u{2502}  Compact at: {} \u{2502}  Max: {} ops",
              args.threads, args.universes, format_num(args.compact_at), format_num(args.max_universe_ops));
-    println!("   Broadcast every: {} ops  │  Seed: {}", args.broadcast_every, args.seed);
-    println!("   Target ops: {}  │  Duration: {}",
-             if args.target_ops == 0 { "∞".to_string() } else { format_num(args.target_ops) },
-             if args.duration == 0 { "∞".to_string() } else { format!("{}s", args.duration) });
+    println!("   Broadcast every: {} ops  \u{2502}  Seed: {}", args.broadcast_every, args.seed);
+    println!("   Target ops: {}  \u{2502}  Duration: {}",
+             if args.target_ops == 0 { "\u{221e}".to_string() } else { format_num(args.target_ops) },
+             if args.duration == 0 { "\u{221e}".to_string() } else { format!("{}s", args.duration) });
     println!("   Op mix: map {}%, set {}%, reg {}%, crash {}%",
-             op_mix.map_pct, 
-             op_mix.set_pct - op_mix.map_pct, 
+             op_mix.map_pct,
+             op_mix.set_pct - op_mix.map_pct,
              op_mix.register_pct - op_mix.set_pct,
              100 - op_mix.register_pct);
-    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}");
     println!();
 
     let stats = Arc::new(Stats::new());
     let start_time = Instant::now();
     let stop_flag = Arc::new(AtomicBool::new(false));
 
-    // Agent names shared by all
     let agent_names: Arc<Vec<String>> = Arc::new(
         (0..args.threads).map(|i| format!("peer_{}", i)).collect()
     );
@@ -458,8 +461,7 @@ fn main() {
             .collect()
     );
 
-    // Create bounded channels: each thread pair has one channel, messages tagged with universe
-    // Bounded channels prevent memory blowup when receivers can't keep up
+    // Create bounded channels
     let mut senders: Vec<Vec<SyncSender<OpsMessage>>> = vec![vec![]; args.threads];
     let mut receivers: Vec<Receiver<OpsMessage>> = Vec::with_capacity(args.threads);
 
@@ -476,7 +478,7 @@ fn main() {
         }
     }
 
-    // Spawn stats printer thread - also handles duration stop
+    // Stats printer thread (also handles duration/target stop)
     let stats_clone = Arc::clone(&stats);
     let stop_flag_clone = Arc::clone(&stop_flag);
     let stats_every = args.stats_every;
@@ -487,14 +489,11 @@ fn main() {
         while !stop_flag_clone.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_millis(100));
 
-            // Check duration stop condition (reliable, runs every 100ms)
             let elapsed = start_time.elapsed();
             if duration_limit > 0 && elapsed.as_secs() >= duration_limit {
                 stop_flag_clone.store(true, Ordering::SeqCst);
                 break;
             }
-
-            // Check target ops stop condition
             if target_ops > 0 && stats_clone.total_ops.load(Ordering::Relaxed) >= target_ops {
                 stop_flag_clone.store(true, Ordering::SeqCst);
                 break;
@@ -507,7 +506,7 @@ fn main() {
         }
     });
 
-    // Spawn one compactor thread per universe (parallel compaction)
+    // Compactor threads (one per universe)
     let compactor_handles: Vec<_> = (0..args.universes)
         .map(|universe_idx| {
             let universes_clone = Arc::clone(&universes);
@@ -518,11 +517,10 @@ fn main() {
 
             thread::spawn(move || {
                 while !stop_flag_clone.load(Ordering::Relaxed) {
-                    thread::sleep(Duration::from_millis(20));  // Check frequently
+                    thread::sleep(Duration::from_millis(20));
 
                     let universe = &universes_clone[universe_idx];
 
-                    // Check if this universe needs compaction
                     if universe.state.load(Ordering::Relaxed) != STATE_RUNNING {
                         continue;
                     }
@@ -530,18 +528,16 @@ fn main() {
                         continue;
                     }
 
-                    // Signal compaction - threads will skip this universe
+                    // Signal compaction
                     universe.state.store(STATE_COMPACTING, Ordering::SeqCst);
-
-                    // Brief sleep to let threads release locks
                     thread::sleep(Duration::from_millis(10));
 
-                    // Acquire write locks on all peers
+                    // Acquire write locks
                     let mut locks: Vec<_> = universe.peers.iter()
                         .map(|p| p.write().unwrap())
                         .collect();
 
-                    // Full mesh sync using split_at_mut
+                    // Full mesh sync
                     let n = locks.len();
                     for _ in 0..2 {
                         for i in 0..n {
@@ -549,19 +545,19 @@ fn main() {
                                 let (left, right) = locks.split_at_mut(j);
                                 let peer_i = &mut left[i];
                                 let peer_j = &mut right[0];
-                                let ops_i: SerializedOpsOwned = peer_i.oplog.ops_since(&[]).into();
-                                let ops_j: SerializedOpsOwned = peer_j.oplog.ops_since(&[]).into();
-                                peer_j.oplog.merge_ops_owned(ops_i).ok();
-                                peer_i.oplog.merge_ops_owned(ops_j).ok();
+                                let ops_i: SerializedOpsOwned = peer_i.doc.ops_since(&Frontier::root()).into();
+                                let ops_j: SerializedOpsOwned = peer_j.doc.ops_since(&Frontier::root()).into();
+                                peer_j.doc.merge_ops(ops_i).ok();
+                                peer_i.doc.merge_ops(ops_j).ok();
                             }
                         }
                     }
 
                     // Verify convergence
-                    let first = locks[0].oplog.checkout();
+                    let first = locks[0].doc.checkout();
                     let mut converged = true;
                     for lock in locks.iter().skip(1) {
-                        if lock.oplog.checkout() != first {
+                        if lock.doc.checkout() != first {
                             converged = false;
                             break;
                         }
@@ -570,7 +566,7 @@ fn main() {
                     if converged {
                         stats_clone.convergence_checks.fetch_add(1, Ordering::Relaxed);
                     } else {
-                        eprintln!("❌ CONVERGENCE FAILURE in universe {}!", universe_idx);
+                        eprintln!("\u{274c} CONVERGENCE FAILURE in universe {}!", universe_idx);
                     }
 
                     // Reset all peer states
@@ -578,17 +574,15 @@ fn main() {
                         **lock = create_peer_state(&agent_names_clone, i);
                     }
 
-                    // Reset op count and resume
                     universe.op_count.store(0, Ordering::Relaxed);
                     universe.state.store(STATE_RUNNING, Ordering::SeqCst);
-
                     stats_clone.compactions.fetch_add(1, Ordering::Relaxed);
                 }
             })
         })
         .collect();
 
-    // Spawn worker threads
+    // Worker threads
     let handles: Vec<_> = (0..args.threads)
         .map(|thread_id| {
             let args = args.clone();
@@ -602,7 +596,7 @@ fn main() {
 
             thread::spawn(move || {
                 let mut rng = SmallRng::seed_from_u64(args.seed.wrapping_add(thread_id as u64));
-                let mut universe_idx = thread_id % args.universes;  // Start on different universes
+                let mut universe_idx = thread_id % args.universes;
                 let mut ops_since_broadcast = 0u64;
                 let mut ops_since_recv = 0u64;
 
@@ -611,10 +605,9 @@ fn main() {
                         break;
                     }
 
-                    // Find a running universe that's not at capacity (round-robin)
+                    // Find a running universe under capacity
                     let mut attempts = 0;
                     loop {
-                        // Check stop flag while searching
                         if stop_flag.load(Ordering::Relaxed) {
                             break;
                         }
@@ -623,7 +616,6 @@ fn main() {
                         let state = universe.state.load(Ordering::Relaxed);
                         let op_count = universe.op_count.load(Ordering::Relaxed);
 
-                        // Accept if running and under hard limit
                         if state == STATE_RUNNING && op_count < args.max_universe_ops {
                             break;
                         }
@@ -631,20 +623,17 @@ fn main() {
                         universe_idx = (universe_idx + 1) % args.universes;
                         attempts += 1;
                         if attempts >= args.universes * 2 {
-                            // All universes full or compacting, back off
                             thread::sleep(Duration::from_millis(10));
                             attempts = 0;
                         }
                     }
 
-                    // Re-check stop flag after exiting search loop
                     if stop_flag.load(Ordering::Relaxed) {
                         break;
                     }
 
                     let universe = &universes[universe_idx];
 
-                    // Try to get write lock, skip if would block (compactor might want it)
                     let lock_result = universe.peers[thread_id].try_write();
                     let mut peer = match lock_result {
                         Ok(p) => p,
@@ -654,7 +643,6 @@ fn main() {
                         }
                     };
 
-                    // Double-check state after acquiring lock
                     if universe.state.load(Ordering::Relaxed) != STATE_RUNNING {
                         drop(peer);
                         universe_idx = (universe_idx + 1) % args.universes;
@@ -670,9 +658,8 @@ fn main() {
 
                     // Broadcast
                     if ops_since_broadcast >= args.broadcast_every {
-                        let ops = peer.oplog.ops_since(peer.last_broadcast_version.as_ref());
-                        let ops_owned: SerializedOpsOwned = ops.into();
-                        peer.last_broadcast_version = peer.oplog.cg.version.clone();
+                        let ops_owned: SerializedOpsOwned = peer.doc.ops_since(&peer.last_broadcast_version).into();
+                        peer.last_broadcast_version = peer.doc.version().clone();
 
                         for sender in &my_senders {
                             let _ = sender.send(OpsMessage {
@@ -684,7 +671,7 @@ fn main() {
                         ops_since_broadcast = 0;
                     }
 
-                    drop(peer);  // Release lock before receiving
+                    drop(peer);
 
                     // Receive and merge
                     if ops_since_recv >= args.recv_every {
@@ -692,18 +679,15 @@ fn main() {
                             let target_universe = &universes[msg.universe_id];
                             if target_universe.state.load(Ordering::Relaxed) == STATE_RUNNING {
                                 if let Ok(mut peer) = target_universe.peers[thread_id].try_write() {
-                                    if peer.oplog.merge_ops_owned(msg.ops).is_ok() {
+                                    if peer.doc.merge_ops(msg.ops).is_ok() {
                                         stats.merges.fetch_add(1, Ordering::Relaxed);
                                     }
                                 }
                             }
-                            // If universe is compacting or locked, message is dropped
-                            // (compactor will sync everything anyway)
                         }
                         ops_since_recv = 0;
                     }
 
-                    // Occasionally switch universes for better distribution
                     if rng.gen_bool(0.1) {
                         universe_idx = (universe_idx + 1) % args.universes;
                     }
@@ -724,7 +708,7 @@ fn main() {
         let _ = handle.join();
     }
 
-    println!("\n🔄 Final sync and verification across all universes...");
+    println!("\n\u{1f504} Final sync and verification across all universes...");
 
     // Final sync and verification for each universe
     let mut all_converged = true;
@@ -733,7 +717,6 @@ fn main() {
             .map(|p| p.write().unwrap())
             .collect();
 
-        // Full mesh sync using split_at_mut
         let n = locks.len();
         for _ in 0..2 {
             for i in 0..n {
@@ -741,19 +724,18 @@ fn main() {
                     let (left, right) = locks.split_at_mut(j);
                     let peer_i = &mut left[i];
                     let peer_j = &mut right[0];
-                    let ops_i: SerializedOpsOwned = peer_i.oplog.ops_since(&[]).into();
-                    let ops_j: SerializedOpsOwned = peer_j.oplog.ops_since(&[]).into();
-                    peer_j.oplog.merge_ops_owned(ops_i).ok();
-                    peer_i.oplog.merge_ops_owned(ops_j).ok();
+                    let ops_i: SerializedOpsOwned = peer_i.doc.ops_since(&Frontier::root()).into();
+                    let ops_j: SerializedOpsOwned = peer_j.doc.ops_since(&Frontier::root()).into();
+                    peer_j.doc.merge_ops(ops_i).ok();
+                    peer_i.doc.merge_ops(ops_j).ok();
                 }
             }
         }
 
-        // Verify
-        let first = locks[0].oplog.checkout();
+        let first = locks[0].doc.checkout();
         for (i, lock) in locks.iter().enumerate().skip(1) {
-            if lock.oplog.checkout() != first {
-                eprintln!("❌ Universe {} peer {} did not converge!", universe_idx, i);
+            if lock.doc.checkout() != first {
+                eprintln!("\u{274c} Universe {} peer {} did not converge!", universe_idx, i);
                 all_converged = false;
             }
         }
@@ -761,12 +743,12 @@ fn main() {
 
     // Final stats
     println!();
-    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}");
     if all_converged {
-        println!("✅ STRESS TEST COMPLETE - All universes converged!");
+        println!("\u{2705} STRESS TEST COMPLETE - All universes converged!");
     } else {
-        println!("❌ STRESS TEST FAILED - Some universes did not converge!");
+        println!("\u{274c} STRESS TEST FAILED - Some universes did not converge!");
     }
     stats.print(start_time.elapsed());
-    println!("═══════════════════════════════════════════════════════════════════════════════");
+    println!("\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}");
 }
