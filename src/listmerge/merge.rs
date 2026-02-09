@@ -562,6 +562,7 @@ impl M2Tracker {
     ///
     /// Returns the tracker's frontier after this has happened; which will be at some pretty
     /// arbitrary point in time based on the traversal. I could save that in a tracker field? Eh.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn walk(&mut self, graph: &Graph, aa: &AgentAssignment, op_ctx: &ListOperationCtx, ops: &RleVec<KVPair<ListOpMetrics>>, start_at: Frontier, rev_spans: &[DTRange], mut apply_to: Option<&mut JumpRopeBuf>) -> Frontier {
         let mut walker = SpanningTreeWalker::new(graph, rev_spans, start_at);
 

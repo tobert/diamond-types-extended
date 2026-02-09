@@ -157,6 +157,7 @@ impl CGStorage {
             .read(true)
             .create(true)
             .write(true)
+            .truncate(false)
             .append(false)
             .open(path.as_ref())?;
 

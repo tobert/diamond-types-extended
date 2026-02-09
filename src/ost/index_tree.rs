@@ -624,7 +624,7 @@ impl<V: Default + IndexContent> IndexTree<V> {
         Self::get_leaf_and_bound_2(&mut self.leaves, idx)
     }
 
-    fn get_leaf_and_bound_2(leaves: &mut Vec<IndexLeaf<V>>, idx: LeafIdx) -> (&mut IndexLeaf<V>, LV) {
+    fn get_leaf_and_bound_2(leaves: &mut [IndexLeaf<V>], idx: LeafIdx) -> (&mut IndexLeaf<V>, LV) {
         let leaf = &leaves[idx.0];
         let upper_bound = Self::leaf_upper_bound_2(leaves, leaf);
         (&mut leaves[idx.0], upper_bound)

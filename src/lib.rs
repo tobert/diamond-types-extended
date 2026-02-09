@@ -45,7 +45,7 @@
 //!
 //! ```ignore
 //! // Peer A creates some changes
-//! let ops = doc_a.ops_since(&[]).to_owned();
+//! let ops = doc_a.ops_since(&[]).into_owned();
 //!
 //! // Peer B merges them
 //! doc_b.merge_ops(ops)?;
@@ -379,7 +379,7 @@ impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
 }
 
 impl<'a> SerializedOps<'a> {
-    fn to_owned(self) -> SerializedOpsOwned {
+    fn into_owned(self) -> SerializedOpsOwned {
         self.into()
     }
 }

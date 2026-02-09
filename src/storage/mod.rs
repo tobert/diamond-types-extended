@@ -199,6 +199,7 @@ const NEXT_PAGE_BYTE_OFFSET: usize = 4 + 2; // checksum then length.
 
 // This function does a lot. I could refactor it to pass a visitor function or something, but I'm
 // only using it in this one context so I think its ok.
+#[allow(clippy::type_complexity)]
 fn scan_blocks<F: DTFile>(file: &mut F, header_fields: &StorageHeaderFields) -> Result<(PageNum, [Option<Box<DataPageState>>; NUM_DATA_CHUNK_TYPES]), SEError> {
     // Ok, now we need to find the next free page.
     // For now, the file should always be "packed" - that is, there can't be any holes in
@@ -369,6 +370,7 @@ impl StorageEngine<File> {
             .read(true)
             .create(true)
             .write(true)
+            .truncate(false)
             .append(false)
             .open(path.as_ref())?;
 

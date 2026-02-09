@@ -635,6 +635,7 @@ impl<V: Content> ContentTree<V> {
 
     /// Splice in an item, and optionally remainder afterwards. Returns the (leaf_idx, elem_idx) of
     /// the inserted item, but NOT the remainder.
+    #[allow(clippy::too_many_arguments)]
     fn splice_in_internal<N>(&mut self, item: V, remainder: Option<V>, mut leaf_idx: LeafIdx, mut elem_idx: usize, delta: &mut LenUpdate, notify_here: bool, notify: &mut N) -> (LeafIdx, usize)
         where N: FnMut(V, LeafIdx)
     {
