@@ -655,7 +655,7 @@ impl Graph {
         fn enc_input(v: LV) -> usize { v << 1 }
         fn enc_normal(v: LV) -> usize { (v << 1) + 1 }
         fn dec(v_enc: usize) -> (bool, LV) {
-            (v_enc % 2 == 0, v_enc >> 1)
+            (v_enc.is_multiple_of(2), v_enc >> 1)
         }
 
         let mut queue: BinaryHeap<usize> = versions_iter.map(|v| {

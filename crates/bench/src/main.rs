@@ -54,7 +54,7 @@ fn testing_data(name: &str) -> TestData {
 }
 
 fn testing_data_dt(name: &str) -> ListOpLog {
-    let bytes = std::fs::read(&testing_data_dt_path(name)).unwrap();
+    let bytes = std::fs::read(testing_data_dt_path(name)).unwrap();
     ListOpLog::load_from(&bytes).unwrap()
 }
 
@@ -161,7 +161,7 @@ fn encoding_nodecc_benchmarks(c: &mut Criterion) {
 
         // for name in COMPLEX_DATASETS {
         let mut group = c.benchmark_group("dt");
-        let bytes = std::fs::read(&testing_data_dt_path(name)).unwrap();
+        let bytes = std::fs::read(testing_data_dt_path(name)).unwrap();
         let oplog = ListOpLog::load_from(&bytes).unwrap();
         // group.throughput(Throughput::Bytes(bytes.len() as _));
         group.throughput(Throughput::Elements(oplog.len() as _));

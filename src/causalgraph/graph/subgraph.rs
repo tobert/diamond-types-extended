@@ -28,7 +28,7 @@ impl<I: Iterator<Item = DTRange>> Filter<I> {
     }
 
     fn scan_until_start_below(&mut self, v: LV) -> Option<DTRange> {
-        while self.current.map_or(false, |c| c.start > v) {
+        while self.current.is_some_and(|c| c.start > v) {
             self.current = self.iter.next();
         }
         self.current
@@ -112,7 +112,7 @@ impl Graph {
                     if peeked_entry.target_parent < base { break; }
 
                     let peeked_target = peeked_entry.target_parent.min(filter.end - 1);
-                    update_parents(&mut result_rev, &mut filtered_frontier, &peeked_entry, peeked_target);
+                    update_parents(&mut result_rev, &mut filtered_frontier, peeked_entry, peeked_target);
                     // iterations += 1;
 
                     for i in peeked_entry.child_indexes.iter() {

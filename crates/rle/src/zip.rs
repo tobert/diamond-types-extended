@@ -4,15 +4,14 @@ use crate::{HasLength, SplitableSpan};
 
 // Also used by intersect.
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub(crate) enum Remainder<A, B> {
+    #[default]
     Nothing,
     SomeA(A),
     SomeB(B),
 }
 
-impl<A, B> Default for Remainder<A, B> {
-    fn default() -> Self { Remainder::Nothing }
-}
 
 impl<A, B> Remainder<A, B> {
     pub(crate) fn take_from_iter<AI, BI>(&mut self, ai: &mut AI, bi: &mut BI) -> Option<(A, B)>

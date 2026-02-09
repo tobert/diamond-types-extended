@@ -71,19 +71,19 @@ impl OpLog {
         let mut item = RegisterValue::OwnedCRDT(CRDTKind::Map, ROOT_CRDT_ID);
         for p in path {
             if let RegisterValue::OwnedCRDT(CRDTKind::Map, key) = item {
-                item = self.checkout_map_key_nc(key, *p)?;
+                item = self.checkout_map_key_nc(key, p)?;
             } else {
                 // Mmm return an error result here maybe??
                 return None;
             }
         }
-        return Some(item)
+        Some(item)
     }
 
     pub fn checkout_register_at_path_nc(&self, path: &[&str], key: &str) -> Option<Primitive> {
         let val = self.checkout_at_path_nc(path)?;
         if let RegisterValue::OwnedCRDT(CRDTKind::Map, container) = val {
-            return if let RegisterValue::Primitive(primitive) = self.checkout_map_key_nc(container, key)? {
+            if let RegisterValue::Primitive(primitive) = self.checkout_map_key_nc(container, key)? {
                 Some(primitive)
             } else { None }
         } else { None }

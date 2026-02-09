@@ -239,14 +239,14 @@ impl SplitableSpanHelpers for FullEntry {
 impl MergableSpan for FullEntry {
     fn can_append(&self, other: &Self) -> bool {
         self.span.can_append(&other.span)
-            && other.parents.as_ref() == &[self.span.last()]
+            && other.parents.as_ref() == [self.span.last()]
             && self.agent_span.can_append(&other.agent_span)
     }
 
     fn append(&mut self, other: Self) {
         self.span.append(other.span);
         self.agent_span.append(other.agent_span);
-        self.ops.extend_rle(other.ops.into_iter());
+        self.ops.extend_rle(other.ops);
     }
 }
 

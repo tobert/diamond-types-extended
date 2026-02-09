@@ -128,7 +128,7 @@ impl M2Tracker {
                     // We'll only get a leaf pointer when we're inserting. Note we can't reuse the leaf
                     // ptr across subsequent invocations because we mutate the range_tree.
                     // let ptr = ptr.take().unwrap_or_else(|| self.old_marker_at(target_range.start));
-                    let leaf_idx = match replace(&mut leaf_idx, LeafIdx::default()) {
+                    let leaf_idx = match std::mem::take(&mut leaf_idx) {
                         LeafIdx(usize::MAX) => self.marker_at(target_range.start),
                         x => x,
                     };

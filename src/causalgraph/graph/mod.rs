@@ -125,7 +125,7 @@ impl Graph {
         };
 
         let did_merge = self.entries.push(txn);
-        debug_assert_eq!(did_merge, false);
+        debug_assert!(!did_merge);
     }
 }
 

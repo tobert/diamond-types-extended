@@ -262,7 +262,7 @@ impl Content for CRDTSpan {
         if IS_CUR {
             self.current_state == INSERTED
         } else {
-            self.end_state_ever_deleted == false
+            !self.end_state_ever_deleted
         }
     }
 

@@ -7,7 +7,7 @@ use rle::AppendRle;
 pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
     let id = doc.get_or_create_agent_id("jeremy");
 
-    for (_i, txn) in txns.iter().enumerate() {
+    for txn in txns.iter() {
         for TestPatch(pos, del_span, ins_content) in &txn.patches {
             if *del_span > 0 {
                 // doc.delete(id, *pos .. *pos + *del_span);
@@ -25,7 +25,7 @@ pub fn apply_edits_direct(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 pub fn apply_edits_push_merge(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
     let id = doc.get_or_create_agent_id("jeremy");
 
-    for (_i, txn) in txns.iter().enumerate() {
+    for txn in txns.iter() {
         for TestPatch(pos, del_span, ins_content) in &txn.patches {
             let pos = *pos;
             let del_span = *del_span;
@@ -40,7 +40,7 @@ pub fn apply_edits_push_merge(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
         }
     }
 
-    doc.branch.merge(&doc.oplog, &doc.oplog.local_frontier_ref());
+    doc.branch.merge(&doc.oplog, doc.oplog.local_frontier_ref());
 }
 
 #[inline(always)]
@@ -49,7 +49,7 @@ pub fn apply_grouped(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 
     let mut ops: Vec<TextOperation> = Vec::new();
 
-    for (_i, txn) in txns.iter().enumerate() {
+    for txn in txns.iter() {
         for TestPatch(pos, del_span, ins_content) in &txn.patches {
             if *del_span > 0 {
                 ops.push(TextOperation::new_delete(*pos .. *pos + *del_span));
@@ -69,7 +69,7 @@ pub fn apply_grouped(doc: &mut ListCRDT, txns: &Vec<TestTxn>) {
 pub fn as_grouped_ops_rle(txns: &Vec<TestTxn>) -> Vec<TextOperation> {
     let mut ops: Vec<TextOperation> = Vec::new();
 
-    for (_i, txn) in txns.iter().enumerate() {
+    for txn in txns.iter() {
         for TestPatch(pos, del_span, ins_content) in &txn.patches {
 
             if *del_span > 0 {
@@ -88,5 +88,5 @@ pub fn as_grouped_ops_rle(txns: &Vec<TestTxn>) -> Vec<TextOperation> {
 #[inline(always)]
 pub fn apply_ops(doc: &mut ListCRDT, ops: &[TextOperation]) {
     let id = doc.get_or_create_agent_id("jeremy");
-    doc.apply_local_operations(id, &ops);
+    doc.apply_local_operations(id, ops);
 }

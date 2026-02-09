@@ -93,7 +93,7 @@ impl<'de> Deserialize<'de> for RangeRev {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["start", "end", "fwd"];
+        const FIELDS: &[&str] = &["start", "end", "fwd"];
         deserializer.deserialize_struct("Duration", FIELDS, DurationVisitor)
         // deserializer.deserialize_struct("RangeRev", &["start", "end", "fwd"], RangeRevVisitor)
     }

@@ -321,7 +321,7 @@ impl CGStorage {
     }
 
     fn write_blit(&mut self, blit: Blit) -> Result<(), CGError> {
-        debug_assert_eq!(self.file.seek(SeekFrom::Current(0)).unwrap(), self.next_write_location + self.data_start());
+        debug_assert_eq!(self.file.stream_position().unwrap(), self.next_write_location + self.data_start());
         self.file.seek(SeekFrom::Start(self.next_blit_location()))?;
 
         Self::write_blit_to(BufWriter::new(&mut self.file), self.blit_size, blit)?;
@@ -359,7 +359,7 @@ impl CGStorage {
 
     fn write_data(&mut self, data: &[u8]) -> Result<(), io::Error> {
         // First we write the data to the end of the file.
-        debug_assert_eq!(self.file.seek(SeekFrom::Current(0)).unwrap(), self.next_write_location + self.data_start());
+        debug_assert_eq!(self.file.stream_position().unwrap(), self.next_write_location + self.data_start());
 
         self.file.write_all(data)?;
         self.next_write_location += data.len() as u64;

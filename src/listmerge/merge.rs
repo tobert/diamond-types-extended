@@ -148,8 +148,8 @@ impl M2Tracker {
         // Ok now that's out of the way, lets integrate!
 
         // These are almost never used. Could avoid the clone here... though its pretty cheap.
-        let left_cursor = dc.0.clone();
-        let mut scan_cursor = dc.0.clone();
+        let left_cursor = dc.0;
+        let mut scan_cursor = dc.0;
         let mut scan_pos = cursor_pos;
         let mut scanning = false;
 
@@ -236,7 +236,7 @@ impl M2Tracker {
                         if other_right_cursor.cmp(&my_right_cursor, &self.range_tree) == Ordering::Less {
                             if !scanning {
                                 scanning = true;
-                                scan_cursor = dc.0.clone();
+                                scan_cursor = dc.0;
                                 scan_pos = cursor_pos;
                             }
                         } else {
@@ -436,7 +436,7 @@ impl M2Tracker {
                     // unreachable!() would be equally valid here.
                     usize::MAX
                 } else {
-                    let mut c2 = new_cursor.0.clone();
+                    let mut c2 = new_cursor.0;
 
                     // Just scan forward until we find the next item that exists at this point
                     // in time. This scan is O(n) but fast in the average case. It might be faster
@@ -547,7 +547,7 @@ impl M2Tracker {
                 self.index.set_range((lv_start..lv_start + len).into(), Marker::Del(DelRange {
                     target: if fwd { target.start } else { target.end },
                     fwd,
-                }).into());
+                }));
 
                 (len, if !ever_deleted {
                     BaseMoved(cursor_pos.end)
@@ -759,7 +759,7 @@ impl<'a> Iterator for TransformedOpsIterRaw<'a> {
         }
 
         // self.close_tracker();
-        return None;
+        None
     }
 }
 

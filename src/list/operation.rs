@@ -24,11 +24,10 @@ use crate::serde_helpers::FlattenSerializable;
 /// So I might use this more broadly, for all edits. If so, move this out of OT.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum ListOpKind { Ins, Del }
+#[derive(Default)]
+pub enum ListOpKind { #[default]
+Ins, Del }
 
-impl Default for ListOpKind {
-    fn default() -> Self { ListOpKind::Ins } // Arbitrary.
-}
 
 impl Display for ListOpKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -1245,7 +1245,7 @@ impl<V: Default + IndexContent> IndexTree<V> {
                     assert!(prev_start == usize::MAX || prev_start < start, "prev_start {prev_start} / start {start}");
                     prev_start = start;
 
-                    assert_eq!(finished, false);
+                    assert!(!finished);
                     expect_next_leaf = self.dbg_check_walk(child_idx, height - 1, Some(start), NodeIdx(idx), expect_next_leaf);
                 }
             }
@@ -1427,7 +1427,7 @@ impl<'a, V: Copy> Iterator for IndexTreeIter<'a, V> {
         //     return None;
         // }
 
-        let data = leaf.children[self.elem_idx].clone();
+        let data = leaf.children[self.elem_idx];
         let start = leaf.bounds[self.elem_idx];
         if start == usize::MAX {
             // This will happen when the tree is empty.

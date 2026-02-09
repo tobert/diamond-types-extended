@@ -172,14 +172,14 @@ impl ConflictSubgraph<M1EntryState> {
             }
             // println!("idx {idx} queue {:?}", queue);
             e.state.critical_path = queue.is_empty();
-            queue.extend(e.parents.iter().copied().map(|i| Reverse(i)));
+            queue.extend(e.parents.iter().copied().map(Reverse));
         }
     }
 
     fn get_children<'a>(children: &'a [usize], e: &ConflictGraphEntry<M1EntryState>) -> &'a [usize] {
         &children[e.state.child_base..e.state.child_end]
     }
-    fn get_children_mut<'a, 'b>(children: &'a mut [usize], e: &'b ConflictGraphEntry<M1EntryState>) -> &'a mut [usize] {
+    fn get_children_mut<'a>(children: &'a mut [usize], e: &ConflictGraphEntry<M1EntryState>) -> &'a mut [usize] {
         &mut children[e.state.child_base..e.state.child_end]
     }
 
@@ -335,7 +335,7 @@ impl ConflictSubgraph<M1EntryState> {
                     // between positions 0-127. At least 1 bit should always be set by this if the
                     // span is not empty.
                     let start = ((e.span.start - min_lv) / lv_per_bit) as u32;
-                    let end = ((e.span.end - min_lv + lv_per_bit - 1) / lv_per_bit) as u32; // Basically, ceil.
+                    let end = (e.span.end - min_lv).div_ceil(lv_per_bit) as u32; // Basically, ceil.
 
                     e.state.new_cost_here = 1u128.wrapping_shl(end)
                         .wrapping_sub(1u128 << start);
@@ -455,7 +455,7 @@ impl ConflictSubgraph<M1EntryState> {
         fn teleport(queue: &mut DiffTraceHeap, g: &ConflictSubgraph<M1EntryState>, actions: &mut Vec<M1PlanAction>, to_idx: usize, from_idx: usize) {
             // Fast case.
             let to_entry_parents = &g.entries[to_idx].parents;
-            if to_entry_parents.as_ref() == &[from_idx] { return; }
+            if to_entry_parents.as_ref() == [from_idx] { return; }
 
             // Retreats must appear first in the action list. We'll cache any advance actions in
             // this vec, and push retreats to the action list immediately.
@@ -502,7 +502,7 @@ impl ConflictSubgraph<M1EntryState> {
         // We'll dummy-visit the first item.
         let e = &mut self.entries[current_idx];
         debug_assert!(e.span.is_empty());
-        debug_assert_eq!(e.state.visited, false);
+        debug_assert!(!e.state.visited);
         e.state.visited = true;
         // let e = &self.entries[current_idx];
         for &c in Self::get_children(&children, &self.entries[current_idx]) {
@@ -588,7 +588,7 @@ impl ConflictSubgraph<M1EntryState> {
                 for i in e.state.next..c.len() {
                     let next_idx = c[i];
                     let e2 = &self.entries[next_idx];
-                    debug_assert_eq!(e2.state.visited, false);
+                    debug_assert!(!e2.state.visited);
 
                     // This is a merge, but we haven't covered all the merge's parents.
                     if e2.state.parents_satisfied != e2.parents.len() { continue; }
@@ -683,12 +683,12 @@ impl M1Plan {
         let mut cleared_version: Frontier = common_ancestor.into();
         let mut started_output = false;
 
-        for (_i, action) in self.0.iter().enumerate() {
+        for action in self.0.iter() {
             // println!("{_i}: {:?}", action);
             match action {
                 M1PlanAction::BeginOutput => {
                     // The "current version" at this point must be a.
-                    assert_eq!(started_output, false);
+                    assert!(!started_output);
                     started_output = true;
                     assert_eq!(max.as_ref(), a);
                 }

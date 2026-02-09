@@ -435,7 +435,7 @@ impl ListOpLog {
     }
 
     pub(crate) fn estimate_cost(&self, op_range: DTRange) -> usize {
-        if op_range.is_empty() { return 0; }
+        if op_range.is_empty() { 0}
         else {
             let start_idx = self.operations.find_index(op_range.start).unwrap();
             let end_idx = self.operations.find_index(op_range.last()).unwrap();

@@ -100,7 +100,7 @@ impl IndexContent for Marker {
                     }
                 }
 
-                return false;
+                false
             },
             _ => false,
         }

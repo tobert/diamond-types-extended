@@ -550,7 +550,7 @@ impl ListOpLog {
         // If we just iterate in the current order, this code would be way simpler :p
         // let iter = self.cg.history.optimized_txns_between(from_frontier, &self.frontier);
         if !opts.sort {
-            assert_eq!(opts.store_xf, false);
+            assert!(!opts.store_xf);
             let (_, new_ranges) = self.cg.graph.diff(from_version, self.cg.version.as_ref());
             // for walk in self.cg.graph.iter_range() {
             // for walk in self.cg.graph.optimized_txns_between(from_version, self.cg.version.as_ref()) {

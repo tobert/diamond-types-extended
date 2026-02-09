@@ -366,7 +366,7 @@ impl DeltaCursor {
 impl<V: Content> ContentTree<V> {
     pub fn new() -> Self {
         debug_assert_eq!(V::none().content_len_pair(), LenPair::default());
-        debug_assert_eq!(V::none().exists(), false);
+        debug_assert!(!V::none().exists());
 
         Self {
             leaves: vec![initial_root_leaf()],
@@ -840,7 +840,7 @@ impl<V: Content> ContentTree<V> {
             // This index isn't actually valid yet, but because we've borrowed self mutably
             // here, the borrow checker will make sure that doesn't matter.
             if v.exists() {
-                notify(v.clone(), LeafIdx(new_leaf_idx));
+                notify(*v, LeafIdx(new_leaf_idx));
                 new_size += v.content_len_pair();
             } else { break; } // TODO: This probably makes the code slower?
         }
@@ -1048,12 +1048,12 @@ impl<V: Content> ContentTree<V> {
 
         // This is always valid because there is always at least 1 leaf item, and its always
         // the first item in the tree.
-        ContentCursor::default().into()
+        ContentCursor::default()
     }
 
     pub fn cursor_at_start_nothing_emplaced(&self) -> ContentCursor {
         debug_assert!(self.cursor.is_none());
-        ContentCursor::default().into()
+        ContentCursor::default()
     }
 
     pub fn mut_cursor_at_start(&mut self) -> DeltaCursor {
@@ -1470,7 +1470,7 @@ impl<'a, V: Content> Iterator for ContentTreeIter<'a, V> {
 
         let leaf = &self.tree[self.leaf_idx];
 
-        let data = leaf.children[self.elem_idx].clone();
+        let data = leaf.children[self.elem_idx];
 
         self.elem_idx += 1;
         if self.elem_idx >= LEAF_CHILDREN || !leaf.children[self.elem_idx].exists() {

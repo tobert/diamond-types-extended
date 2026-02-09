@@ -433,7 +433,7 @@ impl<S: Default + Debug> ConflictSubgraph<S> {
 
     #[allow(unused)]
     fn dbg_check_parents_concurrent(&self, parents: &[usize]) {
-        if parents.len() < 1 { return; }
+        if parents.is_empty() { return; }
 
         let mut queue: BinaryHeap<Reverse<(usize, bool)>> = BinaryHeap::new();
         for p in parents {
