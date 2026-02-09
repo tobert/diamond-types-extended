@@ -49,7 +49,7 @@ use smartstring::alias::String as SmartString;
 use serde::{Deserialize, Serialize};
 
 use crate::causalgraph::agent_assignment::AgentAssignment;
-use crate::register::{RegisterInfo, RegisterState, create_to_register_value};
+use crate::register::RegisterInfo;
 use crate::{CRDTKind, CreateValue, LV, Primitive, RegisterValue};
 
 pub use ops::MapOp;

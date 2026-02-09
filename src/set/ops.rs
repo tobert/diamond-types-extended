@@ -5,7 +5,6 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::LV;
 
 /// An operation on an OR-Set.
 ///

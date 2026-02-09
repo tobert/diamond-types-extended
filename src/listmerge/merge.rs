@@ -7,16 +7,15 @@ use std::cmp::Ordering;
 use jumprope::JumpRopeBuf;
 use smartstring::alias::String as SmartString;
 
-use rle::{AppendRle, HasLength, MergableSpan, MergeableIterator, Searchable, SplitableSpanCtx, Trim, TrimCtx};
+use rle::{HasLength, MergeableIterator, Searchable, SplitableSpanCtx, Trim, TrimCtx};
 use rle::intersect::rle_intersect_rev;
 
 use crate::{AgentId, CausalGraph, Frontier, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::causalgraph::graph::Graph;
-use crate::dtrange::{DTRange, UNDERWATER_START};
+use crate::dtrange::DTRange;
 use crate::list::buffered_iter::BufferedIter;
 use crate::list::encoding::txn_trace::SpanningTreeWalker;
-use crate::list::ListOpLog;
 use crate::list::op_iter::OpMetricsIter;
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
 use crate::list::operation::{ListOpKind, TextOperation};
@@ -29,7 +28,6 @@ use crate::listmerge::plan::{M1Plan, M1PlanAction};
 use crate::listmerge::yjsspan::{CRDTSpan, INSERTED, NOT_INSERTED_YET};
 use crate::ost::{IndexTree, LeafIdx, LenPair, LenUpdate};
 use crate::ost::content_tree::{Content, ContentCursor, ContentTree, DeltaCursor};
-use crate::rev_range::RangeRev;
 use crate::rle::{KVPair, RleSpanHelpers, RleVec};
 use crate::textinfo::TextInfo;
 use crate::unicount::consume_chars;

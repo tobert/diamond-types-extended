@@ -61,9 +61,6 @@
 //! Diamond Types Extended is built on diamond-types by Joseph Gentle. See ATTRIBUTION.md for details.
 
 #![allow(clippy::module_inception)]
-#![allow(unused_imports, dead_code)] // During dev. TODO: Take me out!
-
-extern crate core;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Debug, Formatter};
@@ -78,7 +75,7 @@ pub use ::rle::HasLength;
 use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
-use crate::causalgraph::agent_assignment::remote_ids::{RemoteFrontierOwned, RemoteVersion, RemoteVersionOwned};
+use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteVersionOwned};
 use crate::causalgraph::agent_span::AgentVersion;
 pub use crate::causalgraph::CausalGraph;
 pub use crate::dtrange::DTRange;
@@ -100,40 +97,60 @@ pub use document::{Document, Transaction};
 pub use refs::{MapRef, TextRef, SetRef, RegisterRef};
 pub use muts::{MapMut, TextMut, SetMut};
 
-// ============ Original diamond-types modules ============
+// ============ Original diamond-types modules (upstream internals) ============
+// These modules contain upstream diamond-types code. Many have WIP features
+// and unused items that we preserve for compatibility. Dead code warnings are
+// suppressed at the module level rather than per-item.
+#[allow(dead_code)]
 pub mod list;
+#[allow(dead_code)]
 pub mod register;
+#[allow(dead_code)]
 pub mod map;
+#[allow(dead_code)]
 pub mod set;
 
 #[doc(hidden)]
+#[allow(dead_code)]
 pub mod rle;
+#[allow(dead_code)]
 mod dtrange;
 mod unicount;
+#[allow(dead_code)]
 mod rev_range;
+#[allow(dead_code)]
 pub mod frontier;
 mod check;
+#[allow(dead_code)]
 pub(crate) mod encoding;
+#[allow(dead_code)]
 pub mod causalgraph;
+#[allow(dead_code)]
 mod wal;
+#[allow(dead_code)]
 mod ost;
 
 #[cfg(feature = "serde")]
 pub(crate) mod serde_helpers;
 
+#[allow(dead_code)]
 mod listmerge;
 
 #[cfg(any(test, feature = "gen_test_data"))]
 mod list_fuzzer_tools;
 #[cfg(test)]
 mod fuzzer;
+#[allow(dead_code)]
 mod branch;
 mod textinfo;
+#[allow(dead_code)]
 mod oplog;
 #[cfg(feature = "storage")]
+#[allow(dead_code)]
 mod storage;
+#[allow(dead_code)]
 mod simple_checkout;
-// mod listmerge2;
+#[allow(dead_code)]
 mod stats;
 
 pub type AgentId = u32;
@@ -307,6 +324,7 @@ pub struct OpLog {
     /// Standalone registers (not inside maps).
     registers: BTreeMap<LVKey, RegisterInfo>,
     /// Index from operation LV to register CRDT ID.
+    #[allow(dead_code)]
     register_index: BTreeMap<LV, LVKey>,
 
     /// OR-Sets storing Primitive values.
@@ -379,6 +397,7 @@ impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
 }
 
 impl<'a> SerializedOps<'a> {
+    #[allow(dead_code)]
     fn into_owned(self) -> SerializedOpsOwned {
         self.into()
     }

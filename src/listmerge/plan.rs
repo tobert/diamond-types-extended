@@ -4,14 +4,12 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::ops::Not;
-use bumpalo::collections::CollectIn;
 use smallvec::{SmallVec, smallvec};
-use rle::{AppendRle, HasLength, HasRleKey, MergableSpan};
-use crate::{CausalGraph, DTRange, Frontier, LV};
+use rle::{AppendRle, HasLength, MergableSpan};
+use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::graph::conflict_subgraph::{ConflictGraphEntry, ConflictSubgraph};
 use crate::causalgraph::graph::Graph;
 use crate::causalgraph::graph::tools::DiffFlag;
-use crate::list::ListOpLog;
 use crate::list::op_metrics::ListOpMetrics;
 use crate::rle::{KVPair, RleSpanHelpers, RleVec};
 
@@ -895,6 +893,7 @@ mod test {
 #[ignore]
 #[test]
 fn lite_bench() {
+    use crate::list::ListOpLog;
     let bytes = std::fs::read(format!("test_data/collab/clownschool.dt")).unwrap();
     // let bytes = std::fs::read(format!("test_data/oss/git-makefile.dt")).unwrap();
     // let bytes = std::fs::read(format!("test_data/oss/node_nodecc.dt")).unwrap();

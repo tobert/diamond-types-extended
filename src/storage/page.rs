@@ -5,8 +5,8 @@
 
 use std::fmt;
 use std::ops::Range;
-use std::fs::File;
 use smallvec::smallvec;
+#[allow(unused_imports)]
 use std::os::unix::fs::FileExt;
 use crate::encoding::bufparser::BufParser;
 use crate::encoding::tools::{calc_checksum, ExtendFromSlice, TryExtendFromSlice};

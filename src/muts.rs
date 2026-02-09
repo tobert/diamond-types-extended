@@ -4,7 +4,6 @@
 
 use std::ops::Range;
 
-use smartstring::alias::String as SmartString;
 
 use crate::value::{CrdtId, Value};
 use crate::list::operation::TextOperation;
@@ -279,14 +278,14 @@ impl<'a> SetMut<'a> {
 /// Each map key is effectively an LWW register. Use `MapMut::set()` to update
 /// register values.
 // Hidden from public API until standalone register mutation is implemented
+#[allow(dead_code)]
 pub(crate) struct RegisterMut<'a> {
-    #[allow(dead_code)]
     oplog: &'a mut OpLog,
-    #[allow(dead_code)]
     agent: AgentId,
     crdt_id: LV,
 }
 
+#[allow(dead_code)]
 impl<'a> RegisterMut<'a> {
     pub(crate) fn new(oplog: &'a mut OpLog, agent: AgentId, crdt_id: LV) -> Self {
         Self { oplog, agent, crdt_id }

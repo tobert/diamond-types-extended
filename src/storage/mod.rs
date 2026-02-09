@@ -6,19 +6,17 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io;
-use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
+#[allow(unused_imports)]
+use std::io::{ErrorKind, Read, Seek, Write};
 
-#[cfg(target_os = "linux")]
-use std::os::unix::fs::FileExt;
 
 use std::path::Path;
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use smallvec::{smallvec, SmallVec};
 use crate::encoding::parseerror::ParseError;
-use crate::encoding::tools::{DTSerializable, ExtendFromSlice, StackWriteBuf, try_push_str, TryExtendFromSlice};
-use crate::encoding::varint::{try_push_u32, try_push_u64, try_push_usize};
+use crate::encoding::tools::{DTSerializable, StackWriteBuf, TryExtendFromSlice};
 use crate::storage::file::DTFile;
-use crate::storage::page::{BlitStatus, DataPage, DataPageImmutableFields, HeaderPage, Page};
+use crate::storage::page::{DataPage, DataPageImmutableFields, HeaderPage};
 
 mod page;
 mod file;

@@ -3,8 +3,6 @@ use std::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
-use rle::Searchable;
 
 use crate::{DTRange, LV};
 use crate::ost::{IndexContent, LeafIdx};

@@ -3,13 +3,11 @@
 //! These types provide read-only access to CRDT data without requiring
 //! an agent or transaction.
 
-use std::collections::BTreeSet;
 
-use smartstring::alias::String as SmartString;
 
 use crate::branch::btree_range_for_crdt;
 use crate::value::{Conflicted, CrdtId, Value};
-use crate::{CRDTKind, OpLog, Primitive, RegisterValue, ROOT_CRDT_ID, LV};
+use crate::{OpLog, Primitive, ROOT_CRDT_ID, LV};
 
 /// Read-only reference to a Map CRDT.
 ///

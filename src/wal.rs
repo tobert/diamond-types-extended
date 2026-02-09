@@ -20,8 +20,9 @@ use std::fmt::{Display, Formatter};
 use std::fs::File;
 use crate::encoding::parseerror::ParseError;
 use crate::LV;
-use std::{fs, io};
-use std::io::{BufReader, ErrorKind, Read, Result as IOResult, Seek, SeekFrom, Write};
+use std::io;
+#[allow(unused_imports)]
+use std::io::{ErrorKind, Write};
 // use std::ffi::OsString;
 // use std::path::Path;
 // use bumpalo::Bump;
@@ -33,7 +34,7 @@ use std::io::{BufReader, ErrorKind, Read, Result as IOResult, Seek, SeekFrom, Wr
 // use crate::encoding::cg_entry::{read_cg_entry_into_cg, write_cg_entry_iter};
 // use crate::encoding::chunk_reader::ChunkReader;
 // use crate::encoding::op::write_ops;
-use crate::encoding::map::{WriteMap, ReadMap};
+use crate::encoding::map::WriteMap;
 
 // pub(crate) mod wal_encoding;
 

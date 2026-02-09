@@ -29,12 +29,10 @@
 pub mod ops;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::hash::Hash;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::causalgraph::graph::Graph;
 use crate::LV;
 
 pub use ops::SetOp;

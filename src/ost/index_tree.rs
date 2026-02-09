@@ -7,7 +7,6 @@
 use std::cell::Cell;
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::mem;
 use std::ops::{Index, IndexMut, Range};
 use rle::{HasLength, RleDRun};
 use crate::{DTRange, LV};

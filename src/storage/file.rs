@@ -2,16 +2,12 @@
 //! so I can swap out the implementation with something we can test.
 
 use std::fs::File;
-use std::path::Path;
 use std::io;
 #[cfg(not(unix))]
 use std::io::{Read, Write};
-use std::io::{ErrorKind, Seek, SeekFrom};
-use std::os::fd::{AsFd, AsRawFd};
+use std::io::{Seek, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
-#[cfg(unix)]
-use std::ffi::c_int;
 
 pub trait DTFile {
     fn stream_len(&mut self) -> io::Result<u64>;
@@ -90,6 +86,7 @@ impl DTFile for File {
 pub mod test {
     use std::cell::RefCell;
     use std::collections::BTreeMap;
+    use std::io::ErrorKind;
     use std::mem::replace;
     use std::path::PathBuf;
     use std::rc::Rc;

@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
@@ -8,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use smallvec::{SmallVec, smallvec};
 
 use crate::causalgraph::graph::Graph;
-use crate::causalgraph::graph::tools::DiffFlag;
 use crate::dtrange::DTRange;
 use crate::LV;
 

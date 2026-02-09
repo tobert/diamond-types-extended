@@ -28,9 +28,8 @@ use smallvec::SmallVec;
 use serde::{Deserialize, Serialize};
 
 use crate::causalgraph::agent_assignment::AgentAssignment;
-use crate::causalgraph::agent_span::AgentVersion;
 use crate::causalgraph::graph::Graph;
-use crate::{CreateValue, LV, Primitive, RegisterValue};
+use crate::{CreateValue, LV, RegisterValue};
 
 pub use ops::RegisterOp;
 
@@ -275,6 +274,7 @@ impl LWWRegister {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Primitive;
     use crate::causalgraph::CausalGraph;
 
     #[test]

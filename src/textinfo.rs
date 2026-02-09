@@ -3,7 +3,6 @@ use rle::HasLength;
 use crate::causalgraph::graph::Graph;
 use crate::dtrange::DTRange;
 use crate::frontier::Frontier;
-use crate::list::ListOpLog;
 use crate::list::op_iter::{OpMetricsWithContent, OpMetricsIter};
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
 use crate::list::operation::{ListOpKind, TextOperation};
@@ -19,6 +18,7 @@ pub(crate) struct TextInfo {
     pub(crate) frontier: Frontier,
 }
 
+#[allow(dead_code)]
 impl TextInfo {
     pub fn iter_metrics_range(&self, range: DTRange) -> OpMetricsIter<'_> {
         OpMetricsIter::new(&self.ops, &self.ctx, range)

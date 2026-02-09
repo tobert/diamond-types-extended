@@ -1,12 +1,11 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::mem::{replace, take};
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{Index, IndexMut};
 
 use rle::{HasLength, MergableSpan, MergeableIterator, Searchable, SplitableSpan};
 
-use crate::DTRange;
-use crate::ost::{LEAF_CHILDREN, LeafIdx, LenPair, LenUpdate, NODE_CHILDREN, NodeIdx, remove_from_array, remove_from_array_fill};
+use crate::ost::{LEAF_CHILDREN, LeafIdx, LenPair, LenUpdate, NODE_CHILDREN, NodeIdx, remove_from_array_fill};
 
 pub(crate) trait Content: SplitableSpan + MergableSpan + Copy + HasLength {
     /// The length of the item. If IS_CUR then this is the "current length". Otherwise, this is the

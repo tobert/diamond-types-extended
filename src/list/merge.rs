@@ -6,7 +6,6 @@ use crate::list::{ListBranch, ListOpLog};
 use crate::list::op_metrics::ListOpMetrics;
 use crate::list::operation::{ListOpKind, TextOperation};
 use crate::listmerge::merge::{reverse_str, TransformedOpsIterRaw, TransformedResultRaw, TransformedSimpleOp, TransformedSimpleOpsIter};
-use crate::listmerge::merge::TransformedResult::{BaseMoved, DeleteAlreadyHappened};
 use crate::listmerge::plan::M1PlanAction;
 use crate::rle::KVPair;
 

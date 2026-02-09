@@ -5,14 +5,13 @@
 //! - `Transaction`: Batch mutations with captured agent
 
 use std::collections::BTreeMap;
-use std::ops::Range;
 
 use smartstring::alias::String as SmartString;
 
-use crate::value::{Conflicted, CrdtId, Value};
-use crate::{AgentId, CRDTKind, CreateValue, DTValue, Frontier, OpLog, Primitive, RegisterValue, ROOT_CRDT_ID, LV};
+use crate::value::CrdtId;
+use crate::{AgentId, CRDTKind, DTValue, Frontier, OpLog, ROOT_CRDT_ID, LV};
 use crate::refs::{MapRef, RegisterRef, SetRef, TextRef};
-use crate::muts::{MapMut, RegisterMut, SetMut, TextMut};
+use crate::muts::{MapMut, SetMut, TextMut};
 
 /// A unified CRDT document container.
 ///
