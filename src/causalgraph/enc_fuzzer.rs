@@ -1,8 +1,5 @@
 use rand::prelude::*;
 use crate::{CausalGraph, Frontier};
-use crate::encoding::bufparser::BufParser;
-use crate::encoding::cg_entry::{read_cg_entry_into_cg, write_cg_entry_iter};
-use crate::encoding::map::{ReadMap, WriteMap};
 use crate::list_fuzzer_tools::{choose_2, fuzz_multithreaded};
 
 fn merge_changes(from_cg: &CausalGraph, into_cg: &mut CausalGraph, from_root: bool) {

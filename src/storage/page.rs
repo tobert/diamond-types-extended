@@ -531,9 +531,9 @@ pub fn page_first_byte_offset(is_header: bool) -> usize {
 
 #[cfg(test)]
 mod test {
-    use crate::encoding::tools::{ExtendFromSlice, TryExtendFromSlice};
-    use crate::storage::page::{BlitStatus, Page, DataPageImmutableFields, DataPage};
-    use crate::storage::{DataPageType, PageType};
+    use crate::encoding::tools::TryExtendFromSlice;
+    use crate::storage::page::{BlitStatus, DataPageImmutableFields, DataPage};
+    use crate::storage::DataPageType;
 
     #[test]
     fn blah() {

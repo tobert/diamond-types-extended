@@ -972,9 +972,9 @@ impl OpLog {
 mod tests {
     #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
-    use crate::{CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID, SerializedOps};
-    use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
-    use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
+    use crate::{CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID};
+    
+    
     use crate::list::operation::TextOperation;
 
     #[test]

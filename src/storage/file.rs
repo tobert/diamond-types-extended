@@ -84,12 +84,12 @@ impl DTFile for File {
 
 #[cfg(test)]
 pub mod test {
-    use std::cell::RefCell;
-    use std::collections::BTreeMap;
+    
+    
     use std::io::ErrorKind;
     use std::mem::replace;
-    use std::path::PathBuf;
-    use std::rc::Rc;
+    
+    
     use rand::prelude::*;
     use super::*;
 

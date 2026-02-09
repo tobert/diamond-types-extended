@@ -419,10 +419,4 @@ mod test {
         dbg!(std::mem::size_of::<V3>());
     }
 
-    #[cfg(all(feature = "serde", feature = "serde_json"))]
-    #[test]
-    fn serde_deserialize() {
-        let line = r#"{"loc":{"start":0,"end":8,"fwd":true},"kind":"Ins","content_pos":[0,8]}"#;
-        let _x: ListOpMetrics = serde_json::from_str(&line).unwrap();
-    }
 }

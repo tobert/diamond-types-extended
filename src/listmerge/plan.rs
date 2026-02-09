@@ -802,10 +802,10 @@ impl M1Plan {
 
 #[cfg(test)]
 mod test {
-    use smallvec::smallvec;
+    
     use crate::causalgraph::graph::{Graph, GraphEntrySimple};
     use crate::causalgraph::graph::random_graphs::with_random_cgs;
-    use crate::causalgraph::graph::tools::DiffFlag;
+    
     use crate::Frontier;
 
     #[test]

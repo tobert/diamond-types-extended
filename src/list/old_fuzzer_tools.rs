@@ -1,7 +1,6 @@
 use rand::prelude::SmallRng;
 use jumprope::JumpRope;
 use rand::Rng;
-use smallvec::smallvec;
 use rle::MergeableIterator;
 use rle::zip::{rle_zip, rle_zip3};
 use crate::{AgentId, LV};

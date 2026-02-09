@@ -1507,9 +1507,9 @@ impl<'a, V: Content> Iterator for ContentLeafIter<'a, V> {
 #[cfg(test)]
 mod test {
     use std::fmt::Debug;
-    use std::iter::Enumerate;
+    
     use std::ops::Range;
-    use std::pin::Pin;
+    
     use std::slice;
 
     use rand::{Rng, SeedableRng};
@@ -1520,7 +1520,7 @@ mod test {
     use crate::list_fuzzer_tools::fuzz_multithreaded;
     use crate::ost::{LeafIdx, LenPair};
 
-    use super::{Content, ContentTree, DeltaCursor};
+    use super::{Content, ContentTree};
 
     /// This is a simple span object for testing.
     #[derive(Debug, Clone, Copy, Eq, PartialEq)]

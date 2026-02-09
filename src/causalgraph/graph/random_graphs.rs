@@ -1,10 +1,8 @@
 //! This file contains a fuzzer-style generator of random causal graphs used to test various
 //! CG functions.
 
-use std::path::Path;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
-use crate::causalgraph::graph::Graph;
 use crate::{AgentId, CausalGraph, DTRange, Frontier};
 use crate::list_fuzzer_tools::choose_2;
 

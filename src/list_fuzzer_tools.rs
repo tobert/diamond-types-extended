@@ -1,15 +1,10 @@
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::sleep;
-use std::time::Duration;
 use rand::prelude::SmallRng;
 use jumprope::JumpRope;
 use rand::Rng;
-use smallvec::smallvec;
-use rle::MergeableIterator;
-use rle::zip::{rle_zip, rle_zip3};
-use crate::{AgentId, LV};
+use crate::LV;
 use crate::listmerge::simple_oplog::*;
 
 // const USE_UNICODE: bool = true;

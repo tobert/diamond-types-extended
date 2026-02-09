@@ -1,7 +1,5 @@
 use jumprope::JumpRope;
 use rand::prelude::*;
-use crate::{AgentId, DTRange};
-use crate::list::operation::TextOperation;
 use crate::list_fuzzer_tools::{choose_2, fuzz_multithreaded, make_random_change};
 use crate::listmerge::simple_oplog::{SimpleBranch, SimpleOpLog};
 

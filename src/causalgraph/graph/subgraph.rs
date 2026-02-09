@@ -309,13 +309,13 @@ impl Graph {
 #[cfg(test)]
 mod test {
     use std::ops::Range;
-    use smallvec::smallvec;
-    use rle::intersect::{rle_intersect, rle_intersect_first};
+    
+    use rle::intersect::rle_intersect_first;
     use rle::MergeableIterator;
     use crate::causalgraph::graph::Graph;
-    use crate::{DTRange, Frontier, LV};
+    use crate::{DTRange, LV};
     use crate::causalgraph::graph::tools::test::fancy_graph;
-    use crate::rle::RleVec;
+    
 
     fn check_subgraph(g: &Graph, filter: &[Range<usize>], frontier: &[LV], expect_parents: &[&[LV]], expect_frontier: &[LV]) {
         let filter: Vec<DTRange> = filter.iter().map(|r| r.clone().into()).collect();

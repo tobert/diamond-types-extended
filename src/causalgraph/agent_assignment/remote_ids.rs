@@ -36,7 +36,7 @@ impl<'a> From<RemoteVersion<'a>> for RemoteVersionOwned {
 }
 
 impl<'a> RemoteVersion<'a> {
-    pub fn to_owned(&self) -> RemoteVersionOwned {
+    pub fn to_owned(self) -> RemoteVersionOwned {
         self.into()
     }
 }
@@ -212,7 +212,7 @@ impl AgentAssignment {
 
 #[cfg(test)]
 mod test {
-    use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteVersionOwned};
+    use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
     use crate::CausalGraph;
 
     #[test]

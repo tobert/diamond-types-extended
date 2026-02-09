@@ -1,4 +1,3 @@
-use lz4_flex::compress;
 use crate::encoding::parseerror::ParseError;
 use crate::list::{ListCRDT, ListOpLog};
 use crate::list::encoding::decode_oplog::{dbg_print_chunks_in, DecodeOptions};

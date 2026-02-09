@@ -3,7 +3,7 @@
 //!
 //! - I have two separate data structures, one for the index and one for content. Content-tree uses
 //!   the same b-tree data structure for both
-//! - These btree implementations store data in a Vec<Leaf> / Vec<Node> pair rather than using raw
+//! - These btree implementations store data in a `Vec<Leaf>` / `Vec<Node>` pair rather than using raw
 //!   pointers. Surprisingly, this turns out to perform better - because the CPU ends up caching
 //!   runs of nodes. It also means this works with no unsafe {} blocks.
 //! - There's less abstraction here. Way less abstraction. I went a bit overboard with content-tree

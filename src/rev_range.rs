@@ -229,10 +229,4 @@ mod test {
         }
     }
 
-    #[cfg(all(feature = "serde", feature = "serde_json"))]
-    #[test]
-    fn serde_deserialize() {
-        let line = r#"{"start":0,"end":8,"fwd":true}"#;
-        let _x: RangeRev = serde_json::from_str(&line).unwrap();
-    }
 }

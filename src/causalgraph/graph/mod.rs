@@ -391,7 +391,7 @@ mod tests {
     use smallvec::smallvec;
     use rle::{MergableSpan, test_splitable_methods_valid};
     use crate::causalgraph::graph::{Graph, GraphEntrySimple};
-    use crate::encoding::ChunkType::CausalGraph;
+    
     use crate::Frontier;
     use super::GraphEntryInternal;
 

@@ -2,7 +2,7 @@
 //! faster to encode and decode because it plays better with branch predictor.
 //!
 //! This uses a bijective base, where each number has exactly 1 canonical encoding.
-//! See https://news.ycombinator.com/item?id=11263378 for an explanation as to why.
+//! See <https://news.ycombinator.com/item?id=11263378> for an explanation as to why.
 //!
 //! This format is extremely similar to how UTF8 works internally. Its almost certainly possible to
 //! reuse existing efficient UTF8 <-> UTF32 SIMD encoders and decoders to make this code faster,

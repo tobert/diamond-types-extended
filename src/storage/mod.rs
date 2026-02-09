@@ -756,9 +756,9 @@ impl<'a, F: DTFile> Iterator for DataChunkIterator<'a, F> {
 
 #[cfg(test)]
 mod test {
-    use crate::encoding::varint::try_push_usize;
+    
     use crate::storage::{DataPageType, StorageEngine};
-    use crate::storage::file::test::TestFile;
+    
 
     #[test]
     fn one() {

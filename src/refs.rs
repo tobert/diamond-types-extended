@@ -312,7 +312,7 @@ impl<'a> RegisterRef<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::Document;
 
     #[test]

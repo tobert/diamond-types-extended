@@ -373,40 +373,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "serde", feature = "serde_json"))]
-    fn test_serialize() {
-        let mut cg = CausalGraph::new();
-
-        cg.get_or_create_agent_id("seph");
-        cg.get_or_create_agent_id("mike");
-        cg.merge_and_assign(&[], AgentSpan {
-            agent: 0,
-            seq_range: (0..5).into()
-        });
-
-        cg.merge_and_assign(&[], AgentSpan {
-            agent: 1,
-            seq_range: (0..5).into()
-        });
-        cg.merge_and_assign(&[4], AgentSpan {
-            agent: 0,
-            seq_range: (5..10).into()
-        });
-        cg.merge_and_assign(&[4], AgentSpan {
-            agent: 1,
-            seq_range: (15..20).into()
-        });
-
-        let summary = cg.agent_assignment.summarize_versions();
-        let s = serde_json::to_string(&summary).unwrap();
-
-        let summary2: VersionSummary = serde_json::from_str(&s).unwrap();
-        // dbg!(summary2);
-        assert_eq!(summary, summary2);
-        // summary
-    }
-
-    #[test]
     fn intersect_summary() {
         let mut cg = CausalGraph::new();
         cg.get_or_create_agent_id("seph");

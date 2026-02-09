@@ -4,10 +4,7 @@ use smartstring::SmartString;
 use rle::HasLength;
 use crate::list::operation::TextOperation;
 use crate::{CausalGraph, Frontier, LV};
-use crate::causalgraph::graph::Graph;
 use crate::textinfo::TextInfo;
-use crate::list::op_iter::{OpMetricsWithContent, OpMetricsIter};
-use crate::unicount::count_chars;
 
 #[derive(Debug, Default)]
 pub(crate) struct SimpleOpLog {
