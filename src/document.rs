@@ -6,10 +6,8 @@
 
 use std::collections::BTreeMap;
 
-use smartstring::alias::String as SmartString;
-
-use crate::value::CrdtId;
-use crate::{AgentId, CRDTKind, DTValue, Frontier, OpLog, ROOT_CRDT_ID, LV};
+use crate::value::{CrdtId, MaterializedValue, checkout_to_materialized};
+use crate::{AgentId, CRDTKind, Frontier, OpLog, ROOT_CRDT_ID, LV};
 use crate::refs::{MapRef, RegisterRef, SetRef, TextRef};
 use crate::muts::{MapMut, SetMut, TextMut};
 
@@ -89,16 +87,6 @@ impl Document {
         Self {
             oplog: OpLog::new(),
         }
-    }
-
-    /// Load a document from serialized bytes.
-    ///
-    /// Note: For v0.1, use `Document::merge()` to apply serialized operations.
-    /// Full load/save is planned for a future version.
-    pub fn load(_bytes: &[u8]) -> Result<Self, crate::encoding::parseerror::ParseError> {
-        // TODO: Implement proper serialization for the unified OpLog
-        // For now, create an empty document and use merge() to apply ops
-        Ok(Self::new())
     }
 
     /// Get or create an agent ID by name.
@@ -233,8 +221,8 @@ impl Document {
 
     /// Get operations since a version for serialization.
     ///
-    /// Pass an empty slice `&[]` to get all operations (full sync).
-    /// Pass `doc.version().as_ref()` from a peer to get only new operations (delta sync).
+    /// Pass `&Frontier::root()` to get all operations (full sync).
+    /// Pass `peer.version()` to get only new operations (delta sync).
     ///
     /// Returns `SerializedOps` which borrows from this document. Use `.into()` to
     /// convert to `SerializedOpsOwned` for sending across threads or network.
@@ -242,7 +230,7 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Frontier};
     ///
     /// let mut doc_a = Document::new();
     /// let mut doc_b = Document::new();
@@ -254,14 +242,14 @@ impl Document {
     /// });
     ///
     /// // Full sync: get all operations
-    /// let all_ops = doc_a.ops_since(&[]).into();
+    /// let all_ops = doc_a.ops_since(&Frontier::root()).into();
     /// doc_b.merge_ops(all_ops).unwrap();
     ///
     /// // Now doc_b has Alice's changes
     /// assert!(doc_b.root().contains_key("key"));
     /// ```
-    pub fn ops_since(&self, version: &[LV]) -> crate::SerializedOps<'_> {
-        self.oplog.ops_since(version)
+    pub fn ops_since(&self, version: &Frontier) -> crate::SerializedOps<'_> {
+        self.oplog.ops_since(version.as_ref())
     }
 
     /// Merge operations from another peer (owned version).
@@ -289,8 +277,8 @@ impl Document {
 
     /// Get the full document state as a nested map structure.
     ///
-    /// This returns the resolved state of all CRDTs rooted at the document.
-    /// Useful for:
+    /// Returns a `BTreeMap<String, MaterializedValue>` representing the fully
+    /// resolved state of all CRDTs rooted at the document. Useful for:
     /// - Comparing document content across peers (content convergence)
     /// - Serialization to JSON or other formats
     /// - Debugging and inspection
@@ -318,10 +306,8 @@ impl Document {
     /// let state = doc.checkout();
     /// // state is a BTreeMap with the full document tree
     /// ```
-    // TODO: Step 5 will replace this with MaterializedValue
-    #[allow(private_interfaces)]
-    pub fn checkout(&self) -> BTreeMap<SmartString, Box<DTValue>> {
-        self.oplog.checkout()
+    pub fn checkout(&self) -> BTreeMap<String, MaterializedValue> {
+        checkout_to_materialized(self.oplog.checkout())
     }
 
     // ============ Internal access (for advanced use) ============

@@ -5,7 +5,7 @@
 use std::ops::Range;
 
 
-use crate::value::{CrdtId, Value};
+use crate::value::{CrdtId, PrimitiveValue};
 use crate::list::operation::TextOperation;
 use crate::{AgentId, CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID, LV};
 
@@ -37,25 +37,13 @@ impl<'a> MapMut<'a> {
 
     /// Set a key to a primitive value.
     ///
-    /// The value can be any type that implements `Into<Value>`:
-    /// - Primitives: `bool`, `i64`, `i32`, `String`, `&str`
-    /// - Nil: `()`
+    /// Accepts any type that implements `Into<PrimitiveValue>`:
+    /// `bool`, `i64`, `i32`, `String`, `&str`, or `()` for nil.
     ///
-    /// # Panics
-    ///
-    /// Panics if the value is a CRDT reference (Map, Text, Set, Register).
-    /// Use `create_map`, `create_text`, `create_set`, or `create_register` instead.
-    pub fn set(&mut self, key: &str, value: impl Into<Value>) {
-        let value: Value = value.into();
-        let create_value = match value {
-            Value::Nil => CreateValue::Primitive(Primitive::Nil),
-            Value::Bool(b) => CreateValue::Primitive(Primitive::Bool(b)),
-            Value::Int(n) => CreateValue::Primitive(Primitive::I64(n)),
-            Value::Str(s) => CreateValue::Primitive(Primitive::Str(s.into())),
-            Value::Map(_) | Value::Text(_) | Value::Set(_) | Value::Register(_) => {
-                panic!("Cannot set CRDT reference directly. Use create_map/text/set/register instead.");
-            }
-        };
+    /// To create nested CRDTs, use `create_map()`, `create_text()`,
+    /// `create_set()`, or `create_register()` instead.
+    pub fn set(&mut self, key: &str, value: impl Into<PrimitiveValue>) {
+        let create_value: CreateValue = value.into().into();
         self.oplog.local_map_set(self.agent, self.crdt_id, key, create_value);
     }
 
@@ -218,15 +206,10 @@ impl<'a> SetMut<'a> {
 
     /// Add a primitive value to the set.
     ///
-    /// # Panics
-    ///
-    /// Panics if the value is a CRDT reference. Sets only support primitive values.
-    pub fn add(&mut self, value: impl Into<Value>) {
-        let value: Value = value.into();
-        if value.is_crdt() {
-            panic!("Sets only support primitive values, not CRDT references.");
-        }
-        let primitive: Primitive = value.into();
+    /// Accepts any type that implements `Into<PrimitiveValue>`:
+    /// `bool`, `i64`, `i32`, `String`, `&str`, or `()` for nil.
+    pub fn add(&mut self, value: impl Into<PrimitiveValue>) {
+        let primitive: Primitive = value.into().into();
         self.oplog.local_set_add(self.agent, self.crdt_id, primitive);
     }
 
@@ -249,15 +232,9 @@ impl<'a> SetMut<'a> {
     ///
     /// With OR-Set semantics, this removes all observed instances of the value.
     ///
-    /// # Panics
-    ///
-    /// Panics if the value is a CRDT reference.
-    pub fn remove(&mut self, value: impl Into<Value>) {
-        let value: Value = value.into();
-        if value.is_crdt() {
-            panic!("Sets only support primitive values, not CRDT references.");
-        }
-        let primitive: Primitive = value.into();
+    /// Accepts any type that implements `Into<PrimitiveValue>`.
+    pub fn remove(&mut self, value: impl Into<PrimitiveValue>) {
+        let primitive: Primitive = value.into().into();
         self.oplog.local_set_remove(self.agent, self.crdt_id, primitive);
     }
 

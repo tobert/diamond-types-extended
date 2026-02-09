@@ -89,7 +89,7 @@ mod document;
 mod refs;
 mod muts;
 
-pub use value::{Value, CrdtId, Conflicted};
+pub use value::{Value, PrimitiveValue, MaterializedValue, CrdtId, Conflicted};
 pub use document::{Document, Transaction};
 pub use refs::{MapRef, TextRef, SetRef, RegisterRef};
 pub use muts::{MapMut, TextMut, SetMut};
@@ -396,9 +396,17 @@ impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
 }
 
 impl<'a> SerializedOps<'a> {
-    #[allow(dead_code)]
-    fn into_owned(self) -> SerializedOpsOwned {
+    /// Convert to an owned version that can be sent across threads.
+    pub fn into_owned(self) -> SerializedOpsOwned {
         self.into()
+    }
+
+    /// Check if this contains no operations.
+    pub fn is_empty(&self) -> bool {
+        self.cg_changes.is_empty()
+            && self.map_ops.is_empty()
+            && self.text_ops.is_empty()
+            && self.set_ops.is_empty()
     }
 }
 
@@ -413,6 +421,16 @@ pub struct SerializedOpsOwned {
     text_context: ListOperationCtx,
     /// OR-Set operations: (crdt_name, op_version, SerializedSetOp<Primitive>)
     set_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, set::SerializedSetOp<Primitive>)>,
+}
+
+impl SerializedOpsOwned {
+    /// Check if this contains no operations.
+    pub fn is_empty(&self) -> bool {
+        self.cg_changes.is_empty()
+            && self.map_ops.is_empty()
+            && self.text_ops.is_empty()
+            && self.set_ops.is_empty()
+    }
 }
 
 /// This is used for checkouts. This is a value tree.
