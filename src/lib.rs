@@ -373,7 +373,7 @@ pub struct SerializedOps<'a> {
     map_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, &'a str, CreateValue)>,
     text_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, ListOpMetrics)>,
     text_context: ListOperationCtx,
-    /// OR-Set operations: (crdt_name, op_version, SerializedSetOp<Primitive>)
+    /// OR-Set operations: (crdt_name, op_version, `SerializedSetOp<Primitive>`)
     set_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, set::SerializedSetOp<Primitive>)>,
 }
 
@@ -419,7 +419,7 @@ pub struct SerializedOpsOwned {
     map_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, SmartString, CreateValue)>,
     text_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, ListOpMetrics)>,
     text_context: ListOperationCtx,
-    /// OR-Set operations: (crdt_name, op_version, SerializedSetOp<Primitive>)
+    /// OR-Set operations: (crdt_name, op_version, `SerializedSetOp<Primitive>`)
     set_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, set::SerializedSetOp<Primitive>)>,
 }
 

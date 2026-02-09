@@ -199,7 +199,7 @@ impl From<PrimitiveValue> for Value {
 
 /// Fully resolved document tree value.
 ///
-/// Returned by [`Document::checkout()`] to represent the entire document state
+/// Returned by `Document::checkout()` to represent the entire document state
 /// without exposing internal types. Unlike [`Value`], this enum contains
 /// the actual nested data rather than CRDT handles.
 #[derive(Debug, Clone, Eq, PartialEq)]
