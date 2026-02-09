@@ -132,6 +132,7 @@ impl fmt::Display for Value {
 /// Use the `create_map()`, `create_text()`, etc. methods to create
 /// nested CRDTs instead.
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 pub enum PrimitiveValue {
     /// Nil/null value.
     Nil,
@@ -203,6 +204,7 @@ impl From<PrimitiveValue> for Value {
 /// without exposing internal types. Unlike [`Value`], this enum contains
 /// the actual nested data rather than CRDT handles.
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 pub enum MaterializedValue {
     /// Nil/null value.
     Nil,
