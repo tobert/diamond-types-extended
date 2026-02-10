@@ -2,7 +2,7 @@
 name = "diamond-types-extended"
 version = "0.1.2"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 authors = ["Joseph Gentle <me@josephg.com>", "Amy Tobey <tobert@gmail.com>"]
 exclude = [
     ".idea",
