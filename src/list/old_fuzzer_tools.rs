@@ -1,8 +1,8 @@
 use rand::prelude::SmallRng;
 use jumprope::JumpRope;
 use rand::RngExt;
-use rle::MergeableIterator;
-use rle::zip::{rle_zip, rle_zip3};
+use crate::rle::MergeableIterator;
+use crate::rle::zip::{rle_zip, rle_zip3};
 use crate::{AgentId, LV};
 use crate::list::{ListBranch, ListCRDT, ListOpLog};
 use crate::list_fuzzer_tools::random_str;

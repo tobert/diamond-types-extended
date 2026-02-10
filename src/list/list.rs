@@ -2,7 +2,7 @@ use std::ops::Range;
 use humansize::{BINARY, format_size};
 use crate::list::{ListBranch, ListCRDT, ListOpLog};
 use crate::{AgentId, Frontier, LV};
-use rle::HasLength;
+use crate::rle::HasLength;
 use crate::list::operation::ListOpKind::{Del, Ins};
 use crate::list::operation::{ListOpKind, TextOperation};
 use crate::dtrange::DTRange;

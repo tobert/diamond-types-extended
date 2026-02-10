@@ -32,7 +32,7 @@ use std::path::Path;
 use bumpalo::Bump;
 use bumpalo::collections::vec::Vec as BumpVec;
 
-use rle::{HasLength, MergableSpan};
+use crate::rle::{HasLength, MergableSpan};
 
 use crate::{CausalGraph, DTRange, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;

@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
-use rle::{HasLength, MergableSpan, SplitableSpan};
-use rle::zip::rle_zip;
+use crate::rle::{HasLength, MergableSpan, SplitableSpan};
+use crate::rle::zip::rle_zip;
 
 use crate::{AgentId, CausalGraph, LV};
 use crate::causalgraph::*;

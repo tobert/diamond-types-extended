@@ -1,5 +1,5 @@
 use jumprope::JumpRope;
-use rle::{HasLength, RleRun};
+use crate::rle::{HasLength, RleRun};
 use crate::list::encoding::*;
 use crate::causalgraph::graph::GraphEntrySimple;
 use crate::list::operation::ListOpKind::{Del, Ins};

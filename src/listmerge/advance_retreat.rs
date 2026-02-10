@@ -1,5 +1,5 @@
 
-use rle::{HasLength, RleDRun, SplitableSpan};
+use crate::rle::{HasLength, RleDRun, SplitableSpan};
 
 use crate::dtrange::DTRange;
 use crate::list::operation::ListOpKind;

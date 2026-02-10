@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
 use crate::{DTRange, LV};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
@@ -147,7 +147,7 @@ impl MergableSpan for YjsSpanWithState {
 mod tests {
     use std::mem::size_of;
 
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
     use super::*;
 
     #[test]

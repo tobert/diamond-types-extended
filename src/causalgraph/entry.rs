@@ -1,4 +1,4 @@
-use rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::agent_span::AgentSpan;
 

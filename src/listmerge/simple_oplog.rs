@@ -1,7 +1,7 @@
 use std::ops::Range;
 use jumprope::JumpRopeBuf;
 use smartstring::SmartString;
-use rle::HasLength;
+use crate::rle::HasLength;
 use crate::list::operation::TextOperation;
 use crate::{CausalGraph, Frontier, LV};
 use crate::textinfo::TextInfo;

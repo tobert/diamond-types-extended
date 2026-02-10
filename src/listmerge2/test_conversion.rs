@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use smallvec::{SmallVec, smallvec};
-use rle::{MergableSpan, RleRun};
+use crate::rle::{MergableSpan, RleRun};
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::graph::Graph;
 use crate::causalgraph::graph::tools::DiffFlag;

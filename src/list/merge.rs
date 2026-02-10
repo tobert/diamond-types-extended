@@ -1,4 +1,4 @@
-use rle::HasLength;
+use crate::rle::HasLength;
 
 use crate::{DTRange, LV};
 use crate::frontier::FrontierRef;

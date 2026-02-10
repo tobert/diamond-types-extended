@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::mem::{replace, take};
 use std::ops::{Index, IndexMut};
 
-use rle::{HasLength, MergableSpan, MergeableIterator, Searchable, SplitableSpan};
+use crate::rle::{HasLength, MergableSpan, MergeableIterator, Searchable, SplitableSpan};
 
 use crate::ost::{LEAF_CHILDREN, LeafIdx, LenPair, LenUpdate, NODE_CHILDREN, NodeIdx, remove_from_array_fill};
 
@@ -1513,7 +1513,7 @@ mod test {
     use rand::{RngExt, SeedableRng};
     use rand::rngs::SmallRng;
 
-    use rle::{HasLength, HasRleKey, MergableSpan, SplitableSpan, SplitableSpanHelpers};
+    use crate::rle::{HasLength, HasRleKey, MergableSpan, SplitableSpan, SplitableSpanHelpers};
 
     use crate::list_fuzzer_tools::fuzz_multithreaded;
     use crate::ost::{LeafIdx, LenPair};

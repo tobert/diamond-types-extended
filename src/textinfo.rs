@@ -1,5 +1,5 @@
 use jumprope::JumpRopeBuf;
-use rle::HasLength;
+use crate::rle::HasLength;
 use crate::causalgraph::graph::Graph;
 use crate::dtrange::DTRange;
 use crate::frontier::Frontier;

@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::ops::Not;
 use smallvec::{SmallVec, smallvec};
-use rle::{AppendRle, HasLength, MergableSpan};
+use crate::rle::{AppendRle, HasLength, MergableSpan};
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::graph::conflict_subgraph::{ConflictGraphEntry, ConflictSubgraph};
 use crate::causalgraph::graph::Graph;

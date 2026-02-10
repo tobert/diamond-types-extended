@@ -1,5 +1,5 @@
 use std::ops::Range;
-use rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
 use crate::dtrange::DTRange;
 
 /// This is a DTRange which can be either a forwards range (1,2,3) or backwards (3,2,1).
@@ -158,7 +158,7 @@ impl MergableSpan for RangeRev {
 
 #[cfg(test)]
 mod test {
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
     use super::*;
 
     #[test]

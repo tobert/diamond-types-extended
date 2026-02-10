@@ -1,6 +1,6 @@
 use std::collections::BinaryHeap;
 use smallvec::SmallVec;
-use rle::{AppendRle, HasLength};
+use crate::rle::{AppendRle, HasLength};
 use crate::list::ListOpLog;
 use crate::dtrange::DTRange;
 use crate::rle::KVPair;

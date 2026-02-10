@@ -16,7 +16,7 @@ pub(crate) mod leb;
 pub(crate) mod txn_trace;
 mod encode_options;
 
-use rle::MergableSpan;
+use crate::rle::MergableSpan;
 use crate::encoding::varint::*;
 use num_enum::TryFromPrimitive;
 pub use encode_options::EncodeOptions;

@@ -3,7 +3,7 @@
 use smartstring::alias::String as SmartString;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use rle::{HasLength, MergableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, SplitableSpanHelpers};
 use crate::dtrange::DTRange;
 use crate::{Frontier, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;

@@ -7,8 +7,8 @@ use std::cmp::Ordering;
 use jumprope::JumpRopeBuf;
 use smartstring::alias::String as SmartString;
 
-use rle::{HasLength, MergeableIterator, Searchable, SplitableSpanCtx, Trim, TrimCtx};
-use rle::intersect::rle_intersect_rev;
+use crate::rle::{HasLength, MergeableIterator, Searchable, SplitableSpanCtx, Trim, TrimCtx};
+use crate::rle::intersect::rle_intersect_rev;
 
 use crate::{AgentId, CausalGraph, Frontier, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;
@@ -981,7 +981,7 @@ mod test {
     use std::fs::File;
     use std::io::Read;
 
-    use rle::{MergeableIterator, SplitableSpan};
+    use crate::rle::{MergeableIterator, SplitableSpan};
 
     use crate::dtrange::UNDERWATER_START;
     use crate::list::ListOpLog;

@@ -1,7 +1,7 @@
 use smallvec::{SmallVec, smallvec};
 use smartstring::alias::String as SmartString;
 use crate::{CausalGraph, DTRange, Frontier, LV};
-use rle::{HasLength, MergeableIterator, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergeableIterator, SplitableSpanHelpers};
 
 use serde::{Serialize, Deserialize};
 use crate::causalgraph::agent_assignment::AgentAssignment;

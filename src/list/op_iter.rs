@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
-use rle::{AppendRle, HasLength, MergableSpan, SplitableSpan, SplitableSpanCtx, SplitableSpanHelpers};
-use rle::zip::rle_zip3;
+use crate::rle::{AppendRle, HasLength, MergableSpan, SplitableSpan, SplitableSpanCtx, SplitableSpanHelpers};
+use crate::rle::zip::rle_zip3;
 
 use crate::{Frontier, LV};
 use crate::causalgraph::agent_assignment::remote_ids::RemoteVersionSpan;
@@ -304,7 +304,7 @@ mod test {
     use smallvec::smallvec;
 
     use ListOpKind::*;
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
 
     use crate::list::operation::ListOpKind;
     use crate::rle::{KVPair, RleVec};

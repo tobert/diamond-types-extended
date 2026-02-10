@@ -9,7 +9,7 @@ mod yjsspan;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use smallvec::{SmallVec, smallvec};
-use rle::SplitableSpan;
+use crate::rle::SplitableSpan;
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::graph::tools::DiffFlag;
 

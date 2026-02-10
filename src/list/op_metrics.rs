@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanCtx};
+use crate::rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanCtx};
 use crate::list::operation::{ListOpKind, TextOperation};
 use crate::list::operation::ListOpKind::*;
 use crate::list::switch;
@@ -303,7 +303,7 @@ impl MergableSpan for ListOpMetrics {
 
 #[cfg(test)]
 mod test {
-    use rle::{SplitableSpanCtx, test_splitable_methods_valid_ctx};
+    use crate::rle::{SplitableSpanCtx, test_splitable_methods_valid_ctx};
     use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
     use crate::list::operation::ListOpKind;
     use crate::dtrange::DTRange;

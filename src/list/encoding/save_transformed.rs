@@ -1,4 +1,4 @@
-use rle::{AppendRle, HasLength, RleRun};
+use crate::rle::{AppendRle, HasLength, RleRun};
 use crate::encoding::Merger;
 use crate::list::encoding::leb::num_encode_zigzag_isize_old;
 use crate::list::encoding::encode_tools::{push_leb_usize, write_leb_bit_run};

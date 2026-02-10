@@ -1,4 +1,4 @@
-use rle::HasLength;
+use crate::rle::HasLength;
 
 use crate::{AgentId, CausalGraph, DTRange, Frontier, KVPair, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;

@@ -7,7 +7,7 @@ use std::collections::BinaryHeap;
 use serde::Serialize;
 use smallvec::{smallvec, SmallVec};
 
-use rle::{AppendRle, SplitableSpan};
+use crate::rle::{AppendRle, SplitableSpan};
 
 use crate::{Frontier, LV};
 use crate::causalgraph::graph::Graph;
@@ -829,7 +829,7 @@ pub mod test {
 
     use smallvec::smallvec;
 
-    use rle::{AppendRle, MergableSpan};
+    use crate::rle::{AppendRle, MergableSpan};
 
     use crate::{Frontier, LV};
     use crate::causalgraph::graph::*;

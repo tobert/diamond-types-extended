@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
 use crate::LV;
 use crate::dtrange::{debug_lv, DTRange, UNDERWATER_START};
 use crate::ost::content_tree::Content;
@@ -275,7 +275,7 @@ impl Content for CRDTSpan {
 mod tests {
     use std::mem::size_of;
 
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
     use super::*;
 
     #[test]

@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::ops::Range;
-use rle::{HasLength, MergableSpan, merge_items, MergeIter, SplitableSpan};
+use crate::rle::{HasLength, MergableSpan, merge_items, MergeIter, SplitableSpan};
 use crate::frontier::{debug_assert_sorted, is_sorted_slice};
 use crate::list::op_iter::OpMetricsIter;
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};

@@ -6,7 +6,7 @@ use smartstring::alias::String as SmartString;
 
 use serde::{Serialize, Serializer};
 
-use rle::{HasLength, SplitableSpanCtx};
+use crate::rle::{HasLength, SplitableSpanCtx};
 use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
 use crate::{AgentId, CRDTKind, CreateValue, DTRange, DTValue, OpLog, LV, LVKey, Primitive, RegisterInfo, RegisterState, RegisterValue, ROOT_CRDT_ID, SerializedOps, SerializedOpsOwned, ValPair};
 use crate::encoding::bufparser::BufParser;

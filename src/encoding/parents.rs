@@ -1,7 +1,7 @@
 // use bumpalo::collections::vec::Vec as BumpVec;
 use smallvec::SmallVec;
 
-use rle::Searchable;
+use crate::rle::Searchable;
 
 use crate::{Frontier, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;

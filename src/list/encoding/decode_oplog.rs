@@ -7,7 +7,7 @@ use crate::list::operation::ListOpKind::{Del, Ins};
 use crate::rev_range::RangeRev;
 use crate::{AgentId, Frontier, LV};
 use crate::unicount::*;
-use rle::*;
+use crate::rle::*;
 use crate::list::buffered_iter::Buffered;
 use crate::list::encoding::ListChunkType::*;
 use crate::causalgraph::graph::GraphEntrySimple;

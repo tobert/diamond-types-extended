@@ -28,7 +28,7 @@
 
 use std::mem::take;
 use smallvec::{SmallVec, smallvec};
-use rle::{HasLength, SplitableSpan};
+use crate::rle::{HasLength, SplitableSpan};
 use crate::causalgraph::graph::Graph;
 use crate::dtrange::DTRange;
 use crate::{Frontier, LV};

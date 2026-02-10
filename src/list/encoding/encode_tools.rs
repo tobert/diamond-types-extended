@@ -1,5 +1,5 @@
 use std::mem::{replace, size_of};
-use rle::{MergableSpan, RleRun};
+use crate::rle::{MergableSpan, RleRun};
 use std::marker::PhantomData;
 use crate::list::encoding::ListChunkType;
 use crate::encoding::varint::mix_bit_usize;

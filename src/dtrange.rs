@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::Bound;
 use std::fmt::{Debug, DebugStruct, Formatter};
-use rle::{HasLength, HasRleKey, MergableSpan, Searchable, SplitableSpanHelpers};
+use crate::rle::{HasLength, HasRleKey, MergableSpan, Searchable, SplitableSpanHelpers};
 
 use std::ops::{Range, RangeBounds};
 use crate::LV;
@@ -290,7 +290,7 @@ impl Debug for DTRange {
 
 #[cfg(test)]
 mod tests {
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
     use crate::dtrange::DTRange;
 
     #[test]

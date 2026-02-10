@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 // use content_tree::ContentLength;
-use rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanHelpers};
 use crate::AgentId;
 use crate::dtrange::DTRange;
 

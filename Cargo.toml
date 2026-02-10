@@ -17,7 +17,7 @@ categories = ["data-structures", "concurrency"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["crates/*"]
+members = ["crates/crdt-testdata", "crates/trace-alloc"]
 
 [dependencies]
 smartstring = { version = "1.0.1", features = ["serde"] }
@@ -26,7 +26,6 @@ smallvec = { version = "2.0.0-alpha.12", features = ["serde"] }
 lazy_static = "1.5.0"
 
 serde = { version = "1.0.228", features = ["derive"] }
-rle = { version = "0.2.0", path = "crates/rle", features = ["smallvec"] }
 
 serde_json = "1.0.149"
 

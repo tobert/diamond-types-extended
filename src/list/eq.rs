@@ -7,8 +7,8 @@
 // This implementation of Eq is mostly designed to help fuzz testing. It is not optimized for
 // performance.
 
-use rle::{HasLength, SplitableSpan};
-use rle::zip::rle_zip3;
+use crate::rle::{HasLength, SplitableSpan};
+use crate::rle::zip::rle_zip3;
 use crate::{AgentId, Frontier, LV};
 use crate::list::ListOpLog;
 use crate::frontier::sort_frontier;

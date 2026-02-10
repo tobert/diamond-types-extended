@@ -15,7 +15,7 @@ use std::fmt::Debug;
 
 use smallvec::{SmallVec, smallvec};
 
-use rle::AppendRle;
+use crate::rle::AppendRle;
 
 use crate::{CausalGraph, DTRange, Frontier, LV};
 use crate::causalgraph::graph::Graph;

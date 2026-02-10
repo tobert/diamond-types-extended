@@ -7,8 +7,8 @@
 // This implementation of Eq is mostly designed to help fuzz testing. It is not optimized for
 // performance.
 
-use rle::{HasLength, SplitableSpan};
-use rle::zip::rle_zip;
+use crate::rle::{HasLength, SplitableSpan};
+use crate::rle::zip::rle_zip;
 use crate::{AgentId, CausalGraph, Frontier, LV};
 use crate::causalgraph::graph::GraphEntrySimple;
 

@@ -11,7 +11,7 @@ mod simple;
 pub mod random_graphs;
 pub(crate) mod conflict_subgraph;
 
-use rle::{HasLength, HasRleKey, MergableSpan, SplitableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, HasRleKey, MergableSpan, SplitableSpan, SplitableSpanHelpers};
 use crate::{Frontier, LV};
 
 use crate::rle::RleVec;
@@ -387,7 +387,7 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use smallvec::smallvec;
-    use rle::{MergableSpan, test_splitable_methods_valid};
+    use crate::rle::{MergableSpan, test_splitable_methods_valid};
     use crate::causalgraph::graph::{Graph, GraphEntrySimple};
     
     use crate::Frontier;

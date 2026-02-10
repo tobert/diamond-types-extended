@@ -5,7 +5,7 @@
 
 use std::marker::PhantomData;
 use std::mem::replace;
-use rle::MergableSpan;
+use crate::rle::MergableSpan;
 use num_enum::TryFromPrimitive;
 
 // Notes for next time I break compatibility:

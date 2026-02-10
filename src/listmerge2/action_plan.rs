@@ -3,7 +3,7 @@ use std::collections::BinaryHeap;
 use std::mem::take;
 use bumpalo::Bump;
 use smallvec::{SmallVec, smallvec};
-use rle::{HasLength, MergableSpan};
+use crate::rle::{HasLength, MergableSpan};
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::graph::tools::DiffFlag;
 

@@ -8,7 +8,7 @@ use std::cell::Cell;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut, Range};
-use rle::{HasLength, RleDRun};
+use crate::rle::{HasLength, RleDRun};
 use crate::{DTRange, LV};
 use crate::ost::{LEAF_CHILDREN, LeafIdx, NODE_CHILDREN, NodeIdx, remove_from_array, remove_from_array_fill};
 

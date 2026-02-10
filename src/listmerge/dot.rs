@@ -10,7 +10,7 @@ use std::io::{stderr, stdout, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use smallvec::{smallvec, SmallVec};
-use rle::{HasLength, SplitableSpan};
+use crate::rle::{HasLength, SplitableSpan};
 use crate::list::ListOpLog;
 use crate::dtrange::DTRange;
 use crate::{CausalGraph, Frontier, LV};

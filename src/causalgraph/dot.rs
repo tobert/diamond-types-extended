@@ -5,7 +5,7 @@ use std::io::Write;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use rle::HasLength;
+use crate::rle::HasLength;
 use crate::{CausalGraph, LV};
 
 #[derive(Debug, Clone, Copy)]

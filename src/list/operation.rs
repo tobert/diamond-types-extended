@@ -7,7 +7,7 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use smartstring::alias::{String as SmartString};
-use rle::{HasLength, MergableSpan, SplitableSpanHelpers};
+use crate::rle::{HasLength, MergableSpan, SplitableSpanHelpers};
 use ListOpKind::*;
 use crate::unicount::{chars_to_bytes, count_chars};
 use crate::list::op_metrics::ListOpMetrics;
@@ -222,7 +222,7 @@ impl From<(&ListOpMetrics, Option<&str>)> for TextOperation {
 
 #[cfg(test)]
 mod test {
-    use rle::test_splitable_methods_valid;
+    use crate::rle::test_splitable_methods_valid;
     use super::*;
 
     #[test]

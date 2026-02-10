@@ -1,6 +1,6 @@
 use std::collections::BinaryHeap;
 use smallvec::{SmallVec, smallvec};
-use rle::{MergeableIterator, MergeIter};
+use crate::rle::{MergeableIterator, MergeIter};
 use crate::causalgraph::graph::{Graph, GraphEntryInternal};
 use crate::{DTRange, Frontier, LV};
 use crate::rle::RleVec;
@@ -310,8 +310,8 @@ impl Graph {
 mod test {
     use std::ops::Range;
     
-    use rle::intersect::rle_intersect_first;
-    use rle::MergeableIterator;
+    use crate::rle::intersect::rle_intersect_first;
+    use crate::rle::MergeableIterator;
     use crate::causalgraph::graph::Graph;
     use crate::{DTRange, LV};
     use crate::causalgraph::graph::tools::test::fancy_graph;

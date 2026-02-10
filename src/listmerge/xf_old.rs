@@ -1,6 +1,6 @@
 use smallvec::{SmallVec, smallvec};
 
-use rle::{AppendRle, HasLength, Trim, TrimCtx};
+use crate::rle::{AppendRle, HasLength, Trim, TrimCtx};
 
 use crate::{DTRange, Frontier, LV};
 use crate::causalgraph::agent_assignment::AgentAssignment;

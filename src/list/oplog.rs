@@ -1,5 +1,5 @@
 use std::ops::Range;
-use rle::{HasLength, SplitableSpan};
+use crate::rle::{HasLength, SplitableSpan};
 use crate::{AgentId, Frontier, LV};
 use crate::list::{ListBranch, ListOpLog};
 use crate::causalgraph::graph::GraphEntrySimple;
