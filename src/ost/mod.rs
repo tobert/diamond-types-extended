@@ -13,7 +13,6 @@
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Range, Sub, SubAssign};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 pub(crate) use index_tree::{IndexContent, IndexTree};
@@ -26,7 +25,7 @@ pub(crate) mod content_tree;
 
 // Some utility types.
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct LeafIdx(pub(crate) usize);
 

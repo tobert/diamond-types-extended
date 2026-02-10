@@ -14,16 +14,13 @@ use crate::list::op_metrics::ListOpMetrics;
 use crate::dtrange::DTRange;
 use crate::rev_range::RangeRev;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize, Serializer};
-#[cfg(feature = "serde")]
 use serde::ser::SerializeStruct;
-#[cfg(feature = "serde")]
 use crate::serde_helpers::FlattenSerializable;
 
 /// So I might use this more broadly, for all edits. If so, move this out of OT.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub enum ListOpKind { #[default]
 Ins, Del }
@@ -52,11 +49,11 @@ impl Display for ListOpKind {
 /// orders. But it gives us way better compression for some data sets on disk. And this structure
 /// is designed to match the on-disk file format.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[derive(Deserialize)]
 pub struct TextOperation {
     /// The range of items in the document being modified by this operation.
     // For now only backspaces are ever reversed. (constrained by code in op_metrics.rs)
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub loc: RangeRev,
 
     /// Is this operation an insert or a delete?
@@ -65,7 +62,7 @@ pub struct TextOperation {
     /// What content is being inserted or deleted. This is optional for deletes. (And eventually
     /// inserts too, though that code path isn't exercised and may for now cause panics in some
     /// cases).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub content: Option<SmartString>,
 }
 
@@ -75,14 +72,12 @@ impl HasLength for TextOperation {
     }
 }
 
-#[cfg(feature = "serde")]
 impl Serialize for TextOperation {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         self.serialize_struct(serializer)
     }
 }
 
-#[cfg(feature = "serde")]
 impl FlattenSerializable for TextOperation {
     fn struct_name() -> &'static str {
         "Operation"

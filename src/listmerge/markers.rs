@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 
@@ -8,7 +7,7 @@ use crate::{DTRange, LV};
 use crate::ost::{IndexContent, LeafIdx};
 
 /// Its kind of upsetting that I need this.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DelRange {
     /// This is the first LV that the range targets. If fwd, it is the lowest. Otherwise, it is
@@ -43,7 +42,7 @@ impl DelRange {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Marker {
     /// For inserts, we store a pointer to the leaf node containing the inserted item. This is only

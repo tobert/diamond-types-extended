@@ -6,7 +6,6 @@ use crate::list::switch;
 use crate::dtrange::DTRange;
 use crate::rev_range::RangeRev;
 use crate::unicount::chars_to_bytes;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// This is an internal structure for passing around information about a change. Notably the content
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Note that OperationInternal can't directly implement
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct ListOpMetrics {
     /// The span of content which is inserted or deleted.
     ///
@@ -79,7 +78,7 @@ impl HasLength for ListOpMetrics {
 }
 
 #[derive(Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct ListOperationCtx {
     pub(crate) ins_content: Vec<u8>,
     pub(crate) del_content: Vec<u8>,

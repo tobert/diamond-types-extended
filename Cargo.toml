@@ -20,17 +20,15 @@ categories = ["data-structures", "concurrency"]
 members = ["crates/*"]
 
 [dependencies]
-smartstring = "1.0.1"
+smartstring = { version = "1.0.1", features = ["serde"] }
 str_indices = "0.4.3"
-smallvec = "2.0.0-alpha.6"
+smallvec = { version = "2.0.0-alpha.6", features = ["serde"] }
 lazy_static = "1.4.0"
 
-# Used by wasm module, CLI.
-serde = { version = "1.0.183", features = ["derive"], optional = true }
+serde = { version = "1.0.183", features = ["derive"] }
 rle = { version = "0.2.0", path = "crates/rle", features = ["smallvec"] }
 
-# Only used for generating testing data.
-serde_json = { version = "1.0.104", optional = true }
+serde_json = "1.0.104"
 
 bumpalo = { version = "3.16.0", features = ["collections"] }
 
@@ -75,17 +73,16 @@ harness = false
 default = ["lz4", "storage"]
 memusage = ["trace-alloc/memusage"]
 lz4 = ["dep:lz4_flex"]
-serde = ["dep:serde", "dep:serde_json", "smallvec/serde", "smartstring/serde"]
 dot_export = []
 wchar_conversion = ["jumprope/wchar_conversion"]
 merge_conflict_checks = []
 storage = []
-expose_benchmarking = ["serde", "dep:serde_json"]
+expose_benchmarking = []
 stats = []
 
 # This is internal only for generating JSON testing data. To generate, run test suite with
 # rm *_tests.json; cargo test --features gen_test_data causalgraph::parents::tools -- --test-threads 1
-gen_test_data = ["serde", "dep:serde_json", "rand"]
+gen_test_data = ["rand"]
 
 [lib]
 bench = false

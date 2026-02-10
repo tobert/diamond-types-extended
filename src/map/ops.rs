@@ -4,14 +4,13 @@
 
 use smartstring::alias::String as SmartString;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{CRDTKind, CreateValue, Primitive};
 
 /// An operation on an LWW Map.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum MapOp {
     /// Set a key to a primitive or new CRDT value.
     Set {

@@ -3,13 +3,12 @@ use smartstring::alias::String as SmartString;
 use crate::{CausalGraph, DTRange, Frontier, LV};
 use rle::{HasLength, MergeableIterator, SplitableSpanHelpers};
 
-#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::rle::RleSpanHelpers;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct VSEntry {
     pub name: SmartString,
     pub seq_ranges: SmallVec<DTRange, 2>,
@@ -29,7 +28,6 @@ pub struct VersionSummary(Vec<VSEntry>);
 pub struct VersionSummaryFlat(Vec<(SmartString, usize)>);
 
 // Serialize as {name1: [[start, end], [start, end], ..], name2: ...}.
-#[cfg(feature = "serde")]
 mod serde_encoding {
     use std::fmt::Formatter;
     use serde::ser::SerializeMap;

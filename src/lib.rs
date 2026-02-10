@@ -61,7 +61,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Debug, Formatter};
 
 use jumprope::JumpRopeBuf;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smartstring::alias::String as SmartString;
@@ -93,6 +92,7 @@ pub use value::{Value, PrimitiveValue, MaterializedValue, CrdtId, Conflicted};
 pub use document::{Document, DocumentWriter, Transaction};
 pub use refs::{MapRef, TextRef, SetRef, RegisterRef};
 pub use muts::{MapMut, TextMut, SetMut};
+pub use encoding::parseerror::ParseError;
 
 // ============ Original diamond-types modules (upstream internals) ============
 // These modules contain upstream diamond-types code. Many have WIP features
@@ -126,7 +126,7 @@ mod wal;
 #[allow(dead_code)]
 mod ost;
 
-#[cfg(feature = "serde")]
+#[allow(dead_code, unused_imports)]
 pub(crate) mod serde_helpers;
 
 #[allow(dead_code)]
@@ -160,8 +160,8 @@ pub type AgentId = u32;
 pub type LV = usize;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub(crate) enum Primitive {
     Nil,
     Bool(bool),
@@ -169,7 +169,7 @@ pub(crate) enum Primitive {
     // F64(f64),
     Str(SmartString),
 
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     #[allow(dead_code)]
     InvalidUninitialized,
 }
@@ -189,8 +189,7 @@ impl Debug for Primitive {
 
 // #[derive(Debug, Eq, PartialEq, Copy, Clone, TryFromPrimitive)]
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[repr(u16)]
+#[derive(Serialize, Deserialize)]
 pub(crate) enum CRDTKind {
     Map,        // String => Register (like a JS object)
     Register,   // Single LWW value
@@ -201,7 +200,7 @@ pub(crate) enum CRDTKind {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub(crate) enum CreateValue {
     Primitive(Primitive),
     NewCRDT(CRDTKind),
@@ -364,12 +363,12 @@ pub(crate) struct RegisterState {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct SerializedOps<'a> {
     cg_changes: Vec<u8>,
 
     // The version of the op, and the name of the containing CRDT.
-    #[cfg_attr(feature = "serde", serde(borrow))]
+    #[serde(borrow)]
     map_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, &'a str, CreateValue)>,
     text_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, ListOpMetrics)>,
     text_context: ListOperationCtx,
@@ -411,7 +410,7 @@ impl<'a> SerializedOps<'a> {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct SerializedOpsOwned {
     cg_changes: Vec<u8>,
 
@@ -435,8 +434,8 @@ impl SerializedOpsOwned {
 
 /// This is used for checkouts. This is a value tree.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub(crate) enum DTValue {
     Primitive(Primitive),
     /// A register containing a value (which could be a nested CRDT).

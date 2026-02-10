@@ -25,7 +25,7 @@ cargo run --example stress -- --threads 4 --duration 10  # Stress test (clap arg
 
 **Features:**
 - `default` = `["lz4", "storage"]`
-- `serde` — serialization for `PrimitiveValue`, `MaterializedValue`, `SerializedOpsOwned`
+- `serde` is always enabled — all public types derive `Serialize`/`Deserialize`
 - `wchar_conversion` — UTF-16 offset support via jumprope
 
 ## Architecture
@@ -59,7 +59,7 @@ Document (public entry point)
 ### Sync Flow
 
 1. Sender: `let ops = doc_a.ops_since(&peer_frontier).into();` → `SerializedOpsOwned`
-2. Wire: `SerializedOpsOwned` supports `serde` for transport
+2. Wire: `SerializedOpsOwned` implements `Serialize`/`Deserialize` for transport
 3. Receiver: `doc_b.merge_ops(ops)?;`
 
 ### Conflict Model

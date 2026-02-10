@@ -2,7 +2,6 @@
 //!
 //! Operations represent atomic changes that can be made to a set.
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 
@@ -12,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// Removes specify which add-tags to remove. This enables "add-wins" semantics:
 /// if an add and remove happen concurrently, the add wins.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum SetOp<T> {
     /// Add an element to the set.
     ///

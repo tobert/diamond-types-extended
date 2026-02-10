@@ -45,7 +45,6 @@ use std::collections::BTreeMap;
 
 use smartstring::alias::String as SmartString;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::causalgraph::agent_assignment::AgentAssignment;
@@ -59,7 +58,7 @@ use crate::{CRDTKind, CreateValue, LV, Primitive, RegisterValue};
 /// nested CRDTs. The CRDT reference stores the kind and the LV at which
 /// it was created.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum MapValue {
     /// A primitive value (nil, bool, i64, string).
     Primitive(Primitive),

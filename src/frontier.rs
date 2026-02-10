@@ -2,7 +2,6 @@ use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::{SmallVec, smallvec};
 
@@ -19,7 +18,8 @@ use crate::LV;
 /// A frontier must always remain sorted (in numerical order). Note: This is not checked when
 /// deserializing via serde!
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Frontier(pub SmallVec<LV, 2>);
 
 pub type FrontierRef<'a> = &'a [LV];

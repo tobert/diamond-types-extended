@@ -10,7 +10,6 @@ use rle::Searchable;
 use crate::dtrange::DTRange;
 use crate::rle::{HasRleKey, RleKeyedAndSplitable, RleSpanHelpers};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // Each entry has a key (which we search by), a span and a value at that key.
@@ -18,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub struct RleVec<V: HasLength + MergableSpan + Sized>(pub Vec<V>);
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RleStats {
     pub entry_byte_size: usize,
     pub len: usize,

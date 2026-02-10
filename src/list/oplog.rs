@@ -12,7 +12,6 @@ use crate::rev_range::RangeRev;
 use crate::rle::KVPair;
 use crate::unicount::{chars_to_bytes, count_chars};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use crate::rle::rle_vec::RleStats;
 
@@ -446,7 +445,7 @@ impl ListOpLog {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct ListOpLogStats {
     pub op_stats: RleStats,
     pub graph_stats: RleStats,

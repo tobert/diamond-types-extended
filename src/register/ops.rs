@@ -2,7 +2,6 @@
 //!
 //! Operations represent the atomic changes that can be made to a register.
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::CreateValue;
@@ -13,7 +12,7 @@ use crate::CreateValue;
 /// The causal ordering and conflict resolution is handled by the
 /// CausalGraph infrastructure.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RegisterOp {
     /// The new value being set
     pub value: CreateValue,

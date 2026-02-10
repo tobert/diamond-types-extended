@@ -4,7 +4,6 @@ use std::cmp::Ordering;
 use jumprope::JumpRopeBuf;
 use smartstring::alias::String as SmartString;
 
-#[cfg(feature = "serde")]
 use serde::{Serialize, Serializer};
 
 use rle::{HasLength, SplitableSpanCtx};
@@ -21,7 +20,6 @@ use crate::list::operation::TextOperation;
 use crate::rle::{KVPair, RleSpanHelpers};
 use crate::set::{StoredSetOp, SerializedSetOp};
 
-#[cfg(feature = "serde")]
 impl Serialize for OpLog {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         self.ops_since(&[]).serialize(serializer)
@@ -970,11 +968,7 @@ impl OpLog {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
     use crate::{CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID};
-    
-    
     use crate::list::operation::TextOperation;
 
     #[test]

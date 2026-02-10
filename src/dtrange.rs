@@ -5,9 +5,7 @@ use rle::{HasLength, HasRleKey, MergableSpan, Searchable, SplitableSpanHelpers};
 
 use std::ops::{Range, RangeBounds};
 use crate::LV;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
 use crate::serde_helpers::DTRangeTuple;
 
 /// This is an internal replacement for Range<usize>. The main use for this is that std::Range
@@ -15,7 +13,8 @@ use crate::serde_helpers::DTRangeTuple;
 /// a start and end pair. DTRange can be converted to and from std::Range with .from() and .into().
 /// It also has some locally useful methods.
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(from = "DTRangeTuple", into = "DTRangeTuple"))]
+#[derive(Serialize, Deserialize)]
+#[serde(from = "DTRangeTuple", into = "DTRangeTuple")]
 pub struct DTRange {
     pub start: usize,
     pub end: usize

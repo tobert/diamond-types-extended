@@ -2,9 +2,6 @@ use std::ops::Range;
 use rle::{HasLength, MergableSpan, SplitableSpan, SplitableSpanHelpers};
 use crate::dtrange::DTRange;
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize};
-
 /// This is a DTRange which can be either a forwards range (1,2,3) or backwards (3,2,1).
 ///
 /// The inner span is always "forwards" - where span.start <= span.end. But if fwd is false, this

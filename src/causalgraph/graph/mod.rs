@@ -16,7 +16,6 @@ use crate::{Frontier, LV};
 
 use crate::rle::RleVec;
 use crate::dtrange::DTRange;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::{SmallVec, smallvec};
 
@@ -230,7 +229,7 @@ impl HasRleKey for GraphEntryInternal {
 ///
 /// Its now only missing shadow - so I'm not really sure if it still makes sense to keep this as a
 /// separate struct.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GraphEntrySimple {
     pub span: DTRange,

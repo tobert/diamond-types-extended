@@ -4,8 +4,6 @@ use std::marker::PhantomData;
 use crate::list::encoding::ListChunkType;
 use crate::encoding::varint::mix_bit_usize;
 
-#[cfg(feature = "serde")]
-use serde::Serialize;
 use crate::list::encoding::leb::{encode_leb_u32, encode_leb_u64};
 
 pub(super) fn push_leb_u32(into: &mut Vec<u8>, val: u32) {

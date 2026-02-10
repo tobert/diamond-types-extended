@@ -30,7 +30,6 @@ pub mod ops;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::LV;
@@ -198,7 +197,7 @@ impl<T: Ord + Clone> Default for ORSet<T> {
 
 /// Stored operation for serialization/persistence.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum StoredSetOp<T> {
     /// Add with the tag (LV) at which it was added.
     Add { value: T, tag: AddTag },
@@ -212,7 +211,7 @@ use crate::causalgraph::agent_assignment::remote_ids::RemoteVersionOwned;
 ///
 /// Uses RemoteVersionOwned for tags so they can be converted between peers.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum SerializedSetOp<T> {
     /// Add an element. The tag is implicit (same as the operation's version).
     Add { value: T },

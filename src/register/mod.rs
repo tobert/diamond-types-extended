@@ -24,9 +24,6 @@ pub mod ops;
 use std::cmp::Ordering;
 use smallvec::SmallVec;
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::causalgraph::graph::Graph;
 use crate::{CreateValue, LV, RegisterValue};

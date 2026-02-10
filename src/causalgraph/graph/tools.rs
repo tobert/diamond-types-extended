@@ -4,7 +4,6 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
-#[cfg(feature = "serde")]
 use serde::Serialize;
 use smallvec::{smallvec, SmallVec};
 
@@ -19,7 +18,7 @@ use crate::frontier::{debug_assert_sorted, FrontierRef};
 // Diff function needs to tag each entry in the queue based on whether its part of a's history or
 // b's history or both, and do so without changing the sort order for the heap.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub(crate) enum DiffFlag { OnlyA, OnlyB, Shared }
 
 impl Graph {
@@ -961,7 +960,7 @@ pub mod test {
 
     fn assert_frontier_contains_version(graph: &Graph, frontier: &[LV], target: LV, expected: bool) {
         #[cfg(feature="gen_test_data")] {
-            #[cfg_attr(feature = "serde", derive(Serialize))]
+            #[derive(Serialize)]
             #[derive(Clone, Debug)]
             struct Test<'a> {
                 hist: Vec<GraphEntrySimple>,
@@ -1008,7 +1007,7 @@ pub mod test {
 
     fn assert_diff_eq(graph: &Graph, a: &[LV], b: &[LV], expect_a: &[DTRange], expect_b: &[DTRange]) {
         #[cfg(feature="gen_test_data")] {
-            #[cfg_attr(feature = "serde", derive(Serialize))]
+            #[derive(Serialize)]
             #[derive(Clone)]
             struct Test<'a> {
                 hist: Vec<GraphEntrySimple>,

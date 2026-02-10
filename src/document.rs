@@ -415,17 +415,11 @@ impl Document {
     }
 
     /// Serialize the full document state as JSON.
-    ///
-    /// Requires the `serde` feature.
-    #[cfg(feature = "serde")]
     pub fn to_json(&self) -> String {
         serde_json::to_string(&self.checkout()).unwrap()
     }
 
     /// Serialize the full document state as pretty-printed JSON.
-    ///
-    /// Requires the `serde` feature.
-    #[cfg(feature = "serde")]
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(&self.checkout()).unwrap()
     }
@@ -1111,7 +1105,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_to_json() {
         let mut doc = Document::new();
@@ -1233,7 +1226,6 @@ mod tests {
     }
 
     /// Verify to_json includes all CRDT types correctly.
-    #[cfg(feature = "serde")]
     #[test]
     fn test_json_all_crdt_types() {
         let mut doc = Document::new();

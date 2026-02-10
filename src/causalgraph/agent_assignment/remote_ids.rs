@@ -1,7 +1,6 @@
 //! This file contains utilities to convert remote IDs to local version and back.
 
 use smartstring::alias::String as SmartString;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use rle::{HasLength, MergableSpan, SplitableSpanHelpers};
@@ -12,11 +11,11 @@ use crate::causalgraph::agent_span::{AgentVersion, AgentSpan};
 
 /// Remote IDs are IDs you can pass to a remote peer.
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RemoteVersionOwned(pub SmartString, pub usize);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RemoteVersion<'a>(pub &'a str, pub usize);
 
 impl<'a> From<&'a RemoteVersionOwned> for RemoteVersion<'a> {
@@ -66,11 +65,11 @@ impl<'a, S> From<(S, usize)> for RemoteVersion<'a> where S: Into<&'a str> {
 /// External equivalent of CRDTSpan.
 /// TODO: Do the same treatment here for seq_range.
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RemoteVersionSpanOwned(pub SmartString, pub DTRange);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct RemoteVersionSpan<'a>(pub &'a str, pub DTRange);
 
 impl<'a> HasLength for RemoteVersionSpan<'a> {
@@ -100,7 +99,7 @@ pub type RemoteFrontier<'a> = SmallVec<RemoteVersion<'a>, 2>;
 pub type RemoteFrontierOwned = SmallVec<RemoteVersionOwned, 2>;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Serialize)]
 pub enum VersionConversionError {
     UnknownAgent,
     SeqInFuture,
