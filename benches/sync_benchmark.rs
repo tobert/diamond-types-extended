@@ -3,7 +3,8 @@
 //! These benchmarks measure the performance of `ops_since` (serialization) and
 //! `merge_ops` (deserialization) to detect regressions from the agent-splitting fix.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use std::hint::black_box;
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
 
 /// Build a document with many text operations from a single agent

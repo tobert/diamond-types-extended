@@ -16,8 +16,8 @@ fn fuzz_encode_decode_once(seed: u64) {
 
     for _i in 0..300 {
         // println!("\n\nIteration {i}");
-        let agent = rng.gen_range(0..3);
-        for _k in 0..rng.gen_range(1..=3) {
+        let agent = rng.random_range(0..3);
+        for _k in 0..rng.random_range(1..=3) {
             old_make_random_change(&mut doc, None, agent, &mut rng, true);
         }
 
@@ -68,7 +68,7 @@ fn fuzz_encode_decode_multi(seed: u64, verbose: bool) {
         // Generate some operations
         for _j in 0..2 {
             // for _j in 0..5 {
-            let idx = rng.gen_range(0..docs.len());
+            let idx = rng.random_range(0..docs.len());
             let doc = &mut docs[idx];
 
             // make_random_change(doc, None, idx as AgentId, &mut rng);

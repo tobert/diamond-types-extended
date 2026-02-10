@@ -1037,7 +1037,7 @@ fn run_plan(plan: &MergePlan, op_metrics: &RleVec<KVPair<ListOpMetrics>>, ctx: &
 #[cfg(test)]
 mod tests {
     use rand::prelude::SmallRng;
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
     use super::*;
 
     #[test]
@@ -1149,7 +1149,7 @@ mod tests {
 
         let mut rng = SmallRng::seed_from_u64(122);
         for _i in 0..100 {
-            let pos = rng.gen_range(0..len+1);
+            let pos = rng.random_range(0..len+1);
             let (index, offset) = g.find(0, pos, true);
             // dbg!(pos, (index, offset));
             g.move_gap_and_split(index, offset);

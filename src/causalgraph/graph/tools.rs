@@ -639,15 +639,14 @@ impl Graph {
     fn find_dominators_full_internal<F, I>(&self, versions_iter: I, stop_at_shadow: usize, mut visit: F)
         where F: FnMut(LV, bool), I: Iterator<Item=LV>
     {
-        if let Some(max_size) = versions_iter.size_hint().1 {
-            if max_size <= 1 {
+        if let Some(max_size) = versions_iter.size_hint().1
+            && max_size <= 1 {
                 // All items are dominators.
                 for v in versions_iter {
                     visit(v, true);
                 }
                 return;
             }
-        }
 
         // Using the LSB in the data to encode whether this version was an input to the function.
         // We hit all the "normal" versions before the inputs.

@@ -331,8 +331,8 @@ impl M2Tracker {
             let remainder = op_pair.trim_ctx(len_here, ctx);
 
             // dbg!((&op_pair, len_here, transformed_pos));
-            if let BaseMoved(pos) = transformed_pos {
-                if let Some(to) = to.as_mut() {
+            if let BaseMoved(pos) = transformed_pos
+                && let Some(to) = to.as_mut() {
                     // Apply the operation here.
                     match op_pair.1.kind {
                         ListOpKind::Ins => {
@@ -352,7 +352,6 @@ impl M2Tracker {
                         }
                     }
                 }
-            }
 
             if let Some(r) = remainder {
                 op_pair = r;

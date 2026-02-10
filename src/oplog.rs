@@ -120,15 +120,14 @@ impl OpLog {
             let mut directly_overwritten_maps = vec![];
             for reg_info in self.map_keys.values() {
                 for (idx, (lv, val)) in reg_info.ops.iter().enumerate() {
-                    if !reg_info.supremum.contains(&idx) {
-                        if let CreateValue::NewCRDT(kind) = val {
+                    if !reg_info.supremum.contains(&idx)
+                        && let CreateValue::NewCRDT(kind) = val {
                             deleted_crdts.insert(*lv);
 
                             if *kind == CRDTKind::Map {
                                 directly_overwritten_maps.push(*lv);
                             }
                         }
-                    }
                 }
             }
 

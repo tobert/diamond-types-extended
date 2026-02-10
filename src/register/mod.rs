@@ -433,9 +433,9 @@ mod tests {
 
             for _ in 0..20 {
                 // Random agent makes a write
-                let agent = agents[rng.gen_range(0..3)];
+                let agent = agents[rng.random_range(0..3)];
                 let lv = cg.assign_local_op(agent, 1).start;
-                let val = CreateValue::Primitive(Primitive::I64(rng.gen()));
+                let val = CreateValue::Primitive(Primitive::I64(rng.random()));
 
                 // Apply to both (simulating replication)
                 if reg1.ops.is_empty() {

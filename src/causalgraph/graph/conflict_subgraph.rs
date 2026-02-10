@@ -250,11 +250,9 @@ impl Graph {
                 // entries parented off that. If there's weird complex overlapping nonsense, we'll
                 // just leave it as a merge node for each.
                 let mut process_here = true;
-                if let Some(peek_entry) = queue.peek() {
-                    if let Some((&peek_v, peek_rest)) = peek_entry.version.0.split_last() {
-                        if peek_v == v && !peek_rest.is_empty() { process_here = false; }
-                    }
-                }
+                if let Some(peek_entry) = queue.peek()
+                    && let Some((&peek_v, peek_rest)) = peek_entry.version.0.split_last()
+                        && peek_v == v && !peek_rest.is_empty() { process_here = false; }
 
                 // Shatter.
                 // print!("P1: ");

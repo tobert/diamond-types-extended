@@ -1259,11 +1259,10 @@ impl<V: Default + IndexContent> IndexTree<V> {
             assert_eq!(leaf.parent, expect_parent);
 
             // We check that the first child is in use below.
-            if leaf.bounds[0] != usize::MAX {
-                if let Some(expect_start) = expect_start {
+            if leaf.bounds[0] != usize::MAX
+                && let Some(expect_start) = expect_start {
                     assert_eq!(leaf.bounds[0], expect_start);
                 }
-            }
 
             leaf.next_leaf
         }
@@ -1463,7 +1462,7 @@ mod test {
     use std::iter::Enumerate;
     use std::slice;
     use rand::prelude::SmallRng;
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
     // use content_tree::{ContentTreeRaw, RawPositionMetricsUsize};
     use crate::list_fuzzer_tools::fuzz_multithreaded;
     use super::*;
@@ -1699,12 +1698,12 @@ mod test {
         for _i in 0..1000 {
             if verbose { println!("i: {}", _i); }
             // This will generate some overlapping ranges sometimes but not too many.
-            let val = rng.gen_range(0..100) + 100;
-            // let start = rng.gen_range(0..3);
-            let start = rng.gen_range(0..1000);
-            let len = rng.gen_range(0..100) + 1;
-            // let start = rng.gen_range(0..100);
-            // let len = rng.gen_range(0..100) + 1;
+            let val = rng.random_range(0..100) + 100;
+            // let start = rng.random_range(0..3);
+            let start = rng.random_range(0..1000);
+            let len = rng.random_range(0..100) + 1;
+            // let start = rng.random_range(0..100);
+            // let len = rng.random_range(0..100) + 1;
 
             // dbg!(&tree, start, len, val);
             // if _i == 19 {

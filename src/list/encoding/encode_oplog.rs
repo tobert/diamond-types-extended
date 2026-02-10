@@ -704,14 +704,13 @@ impl ListOpLog {
         }
 
         #[cfg(feature = "lz4")] {
-            if let Some(compress_bytes) = compress_bytes {
-                if !compress_bytes.is_empty() {
+            if let Some(compress_bytes) = compress_bytes
+                && !compress_bytes.is_empty() {
                     let compressed_len = write_compressed_chunk(&mut result, &compress_bytes);
                     if verbose {
                         println!("Compressed {} bytes in the file to {}", compress_bytes.len(), compressed_len);
                     }
                 }
-            }
         }
 
         let mut write_chunk = |c: ListChunkType, data: &mut Vec<u8>| {

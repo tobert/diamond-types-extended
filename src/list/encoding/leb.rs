@@ -237,7 +237,7 @@ mod test {
         let mut rng = SmallRng::seed_from_u64(20);
 
         for _i in 0..5000 {
-            let x: u64 = rng.gen();
+            let x: u64 = rng.random();
 
             for bits in 0..64 {
                 let val = x >> bits;

@@ -14,7 +14,7 @@
 //         // Generate some operations
 //         for _j in 0..2 {
 //             // for _j in 0..5 {
-//             let idx = rng.gen_range(0..oplogs.len());
+//             let idx = rng.random_range(0..oplogs.len());
 //             let oplog = &mut oplogs[idx];
 //
 //

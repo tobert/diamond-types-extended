@@ -39,20 +39,20 @@ fn fuzz_cg_flat(seed: u64, verbose: bool) {
         // Generate some operations
         for _j in 0..3 {
             // for _j in 0..5 {
-            let idx = rng.gen_range(0..cgs.len());
+            let idx = rng.random_range(0..cgs.len());
             let cg = &mut cgs[idx];
 
             let agent_id = cg.get_or_create_agent_id(agents[idx]);
-            let num = rng.gen_range(1..10);
+            let num = rng.random_range(1..10);
             cg.assign_local_op(agent_id, num);
         }
 
         // And merge 2 random causal graphs
         let (_a_idx, a, _b_idx, b) = choose_2(&mut cgs, &mut rng);
 
-        merge_changes(a, b, rng.gen_bool(0.04));
+        merge_changes(a, b, rng.random_bool(0.04));
         // println!("--\n\n---");
-        merge_changes(b, a, rng.gen_bool(0.04));
+        merge_changes(b, a, rng.random_bool(0.04));
 
         assert_eq!(a, b);
     }

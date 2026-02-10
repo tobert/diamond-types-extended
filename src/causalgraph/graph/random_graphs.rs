@@ -2,7 +2,7 @@
 //! CG functions.
 
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use crate::{AgentId, CausalGraph, DTRange, Frontier};
 use crate::list_fuzzer_tools::choose_2;
 
@@ -22,11 +22,11 @@ pub(crate) fn with_random_cgs<F: FnMut((usize, usize), &CausalGraph, &[Frontier]
         for i in 0..iterations.1 {
             // Generate some "operations" from the peers.
             for _j in 0..2 {
-                let idx = rng.gen_range(0..frontiers.len());
+                let idx = rng.random_range(0..frontiers.len());
                 let frontier = &mut frontiers[idx];
 
                 let first_change = cg.len();
-                // let span: DTRange = (first_change..first_change + rng.gen_range(1..5)).into();
+                // let span: DTRange = (first_change..first_change + rng.random_range(1..5)).into();
                 let span: DTRange = (first_change..first_change + 1).into();
                 cg.assign_span(idx as AgentId, frontier.as_ref(), span);
 

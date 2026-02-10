@@ -246,8 +246,8 @@ fn scan_blocks<F: DTFile>(file: &mut F, header_fields: &StorageHeaderFields) -> 
     let mut blit_assoc = [PageNum::MAX; NUM_DATA_CHUNK_TYPES];
 
     for (kind, info) in header_fields.data_page_info.iter().enumerate() {
-        if let Some(info) = info {
-            if info.blit_page > 0 {
+        if let Some(info) = info
+            && info.blit_page > 0 {
                 let page = DataPage::try_read_raw(file, info.blit_page)?;
                 if let Some(page) = page {
                     let associated_page = page.get_next_or_associated_page();
@@ -256,7 +256,6 @@ fn scan_blocks<F: DTFile>(file: &mut F, header_fields: &StorageHeaderFields) -> 
                     blit_pages[kind] = Some(page);
                 }
             }
-        }
     }
 
     let mut next_page = 1;
@@ -683,8 +682,8 @@ impl<'a, F: DTFile> Iterator for DataChunkIterator<'a, F> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_page == 0 { return None; }
 
-        if let Some(current_page) = self.current_page {
-            if current_page.current_page_no == self.next_page {
+        if let Some(current_page) = self.current_page
+            && current_page.current_page_no == self.next_page {
                 self.next_page = 0;
                 // We'll yield the current page to the consumer.
                 //
@@ -699,7 +698,6 @@ impl<'a, F: DTFile> Iterator for DataChunkIterator<'a, F> {
                 page.reset_read_pos();
                 return Some(Ok(page));
             }
-        }
 
         // If we get a real read error, pass it up.
         let page = match DataPage::try_read_raw(self.file, self.next_page) {

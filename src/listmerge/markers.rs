@@ -89,13 +89,12 @@ impl IndexContent for Marker {
                     Some(b.target + 1 + offset)
                 } else { None };
 
-                if let (Some(a_start), Some(b_start)) = (a_start, b_start) {
-                    if a_start == b_start {
+                if let (Some(a_start), Some(b_start)) = (a_start, b_start)
+                    && a_start == b_start {
                         a.target = b_start;
                         a.fwd = false;
                         return true;
                     }
-                }
 
                 false
             },

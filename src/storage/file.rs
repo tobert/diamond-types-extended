@@ -172,7 +172,7 @@ pub mod test {
 
                 // For each block of writes, decide if we're going to crash.
                 let crash_here = if per_write_crash_chance > 0.0 {
-                    !rng.gen_bool((1.0 - per_write_crash_chance).powi(block.len() as i32))
+                    !rng.random_bool((1.0 - per_write_crash_chance).powi(block.len() as i32))
                 } else { false };
 
                 for e in block {
@@ -182,15 +182,15 @@ pub mod test {
                     let mut offset = *offset;
                     let mut data = &write_data[..];
 
-                    if crash_here && rng.gen_bool(0.2) {
-                        if rng.gen_bool(0.8) {
+                    if crash_here && rng.random_bool(0.2) {
+                        if rng.random_bool(0.8) {
                             // Skip this write entirely.
                             continue;
                         } else {
                             // Just write some random chunk of the data.
-                            let skip_start = rng.gen_range(0..data.len());
+                            let skip_start = rng.random_range(0..data.len());
                             let skip_end = if skip_start < data.len() {
-                                rng.gen_range(0..data.len() - skip_start)
+                                rng.random_range(0..data.len() - skip_start)
                             } else { 0 };
 
                             offset += skip_start;

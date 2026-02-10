@@ -85,15 +85,14 @@ impl Graph {
     pub(crate) fn push(&mut self, txn_parents: &[LV], range: DTRange) {
         // dbg!(txn_parents, range, &self.history.entries);
         // Fast path. The code below is weirdly slow, but most txns just append.
-        if let Some(last) = self.entries.0.last_mut() {
-            if txn_parents.len() == 1
+        if let Some(last) = self.entries.0.last_mut()
+            && txn_parents.len() == 1
                 && txn_parents[0] == last.last_time()
                 && last.span.can_append(&range)
             {
                 last.span.append(range);
                 return;
             }
-        }
 
         // let parents = replace(&mut self.frontier, txn_parents);
         let mut shadow = range.start;

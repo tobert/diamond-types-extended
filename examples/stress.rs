@@ -47,7 +47,7 @@ use std::time::{Duration, Instant};
 
 use clap::Parser;
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 use diamond_types_extended::{Document, Frontier, PrimitiveValue, SerializedOpsOwned};
 
@@ -289,11 +289,11 @@ fn do_random_op(
     thread_id: usize,
     stats: &Stats,
 ) {
-    let roll: u8 = rng.gen_range(0..100);
+    let roll: u8 = rng.random_range(0..100);
     match op_mix.pick(roll) {
         OpType::Map => {
-            let key = if rng.gen_bool(0.7) {
-                MAP_KEYS[rng.gen_range(0..MAP_KEYS.len())]
+            let key = if rng.random_bool(0.7) {
+                MAP_KEYS[rng.random_range(0..MAP_KEYS.len())]
             } else {
                 MAP_KEYS[thread_id % MAP_KEYS.len()]
             };
@@ -314,11 +314,11 @@ fn do_random_op(
             }
 
             let agent = peer.agent;
-            if rng.gen_bool(0.7) {
-                let val: PrimitiveValue = if rng.gen_bool(0.6) {
-                    SET_VALUES[rng.gen_range(0..SET_VALUES.len())].into()
+            if rng.random_bool(0.7) {
+                let val: PrimitiveValue = if rng.random_bool(0.6) {
+                    SET_VALUES[rng.random_range(0..SET_VALUES.len())].into()
                 } else {
-                    (rng.gen_range(0i64..1000)).into()
+                    (rng.random_range(0i64..1000)).into()
                 };
                 peer.doc.transact(agent, |tx| {
                     if let Some(mut set) = tx.get_set_mut(&["tags"]) {
@@ -326,7 +326,7 @@ fn do_random_op(
                     }
                 });
             } else {
-                let val: String = SET_VALUES[rng.gen_range(0..SET_VALUES.len())].to_string();
+                let val: String = SET_VALUES[rng.random_range(0..SET_VALUES.len())].to_string();
                 peer.doc.transact(agent, |tx| {
                     if let Some(mut set) = tx.get_set_mut(&["tags"]) {
                         set.remove(val.as_str());
@@ -336,7 +336,7 @@ fn do_random_op(
             stats.set_ops.fetch_add(1, Ordering::Relaxed);
         }
         OpType::Register => {
-            let key = if rng.gen_bool(0.5) {
+            let key = if rng.random_bool(0.5) {
                 "register"
             } else {
                 MAP_KEYS[thread_id % MAP_KEYS.len()]
@@ -376,13 +376,13 @@ fn do_random_op(
 }
 
 fn random_primitive(rng: &mut SmallRng) -> PrimitiveValue {
-    match rng.gen_range(0..5) {
+    match rng.random_range(0..5) {
         0 => PrimitiveValue::Nil,
-        1 => PrimitiveValue::Bool(rng.gen()),
-        2 => PrimitiveValue::Int(rng.gen()),
-        3 => PrimitiveValue::Str(format!("v{}", rng.gen::<u32>())),
+        1 => PrimitiveValue::Bool(rng.random()),
+        2 => PrimitiveValue::Int(rng.random()),
+        3 => PrimitiveValue::Str(format!("v{}", rng.random::<u32>())),
         _ => {
-            let s = NASTY_STRINGS[rng.gen_range(0..NASTY_STRINGS.len())];
+            let s = NASTY_STRINGS[rng.random_range(0..NASTY_STRINGS.len())];
             PrimitiveValue::Str(s.to_string())
         }
     }
@@ -688,7 +688,7 @@ fn main() {
                         ops_since_recv = 0;
                     }
 
-                    if rng.gen_bool(0.1) {
+                    if rng.random_bool(0.1) {
                         universe_idx = (universe_idx + 1) % args.universes;
                     }
                 }

@@ -224,11 +224,10 @@ impl<'a> Iterator for TransformedOpsIterOld<'a> {
         };
 
         let (mut pair, op_iter) = loop {
-            if let Some(op_iter) = self.op_iter.as_mut() {
-                if let Some(pair) = op_iter.next() {
+            if let Some(op_iter) = self.op_iter.as_mut()
+                && let Some(pair) = op_iter.next() {
                     break (pair, op_iter);
                 }
-            }
 
             // Otherwise advance to the next chunk from walker.
 

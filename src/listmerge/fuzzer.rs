@@ -14,7 +14,7 @@ fn random_single_document() {
     for _i in 0..1000 {
         // eprintln!("i {}", _i);
 
-        if rng.gen_bool(0.2) {
+        if rng.random_bool(0.2) {
             oplog.goop(10);
             branch.version = oplog.cg.version.clone();
         }
@@ -42,10 +42,10 @@ fn merge_fuzz(seed: u64, verbose: bool) {
         // Generate some operations
         for _j in 0..2 {
         // for _j in 0..5 {
-            let idx = rng.gen_range(0..branches.len());
+            let idx = rng.random_range(0..branches.len());
             let branch = &mut branches[idx];
 
-            if rng.gen_bool(0.1) {
+            if rng.random_bool(0.1) {
                 // Add some rubbish to simulate other documents being edited
                 oplog.goop(10);
             }
@@ -123,7 +123,7 @@ fn merge_fuzz(seed: u64, verbose: bool) {
         }
     }
 
-    // if rng.gen_bool(0.0001) {
+    // if rng.random_bool(0.0001) {
     //     panic!("blerp!");
     // }
 

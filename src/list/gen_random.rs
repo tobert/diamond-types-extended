@@ -27,12 +27,12 @@ pub fn gen_oplog(seed: u64, steps: usize, use_unicode: bool, interleave_agents: 
         // Generate some operations
         // for _j in 0..2 {
         for _j in 0..5 {
-            let idx = rng.gen_range(0..branches.len());
+            let idx = rng.random_range(0..branches.len());
             let branch = &mut branches[idx];
 
             let agent = if interleave_agents {
                 // Pick a random agent to use with the new operation(s).
-                rng.gen_range(0..agents.len())
+                rng.random_range(0..agents.len())
             } else {
                 // Just use the agent corresponding to the branch.
                 idx

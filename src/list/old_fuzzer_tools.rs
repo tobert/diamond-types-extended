@@ -1,6 +1,6 @@
 use rand::prelude::SmallRng;
 use jumprope::JumpRope;
-use rand::Rng;
+use rand::RngExt;
 use rle::MergeableIterator;
 use rle::zip::{rle_zip, rle_zip3};
 use crate::{AgentId, LV};
@@ -10,13 +10,13 @@ use crate::list_fuzzer_tools::random_str;
 pub(crate) fn old_make_random_change_raw(oplog: &mut ListOpLog, branch: &ListBranch, mut rope: Option<&mut JumpRope>, agent: AgentId, rng: &mut SmallRng, use_unicode: bool) -> LV {
     let doc_len = branch.len();
     let insert_weight = if doc_len < 100 { 0.55 } else { 0.45 };
-    let v = if doc_len == 0 || rng.gen_bool(insert_weight) {
+    let v = if doc_len == 0 || rng.random_bool(insert_weight) {
         // Insert something.
-        let pos = rng.gen_range(0..=doc_len);
-        let len: usize = rng.gen_range(1..3); // Ideally skew toward smaller inserts.
+        let pos = rng.random_range(0..=doc_len);
+        let len: usize = rng.random_range(1..3); // Ideally skew toward smaller inserts.
         let content = random_str(len, rng, use_unicode);
         debug_assert_eq!(content.chars().count(), len);
-        let fwd = len == 1 || rng.gen_bool(0.5);
+        let fwd = len == 1 || rng.random_bool(0.5);
         // eprintln!("Inserting '{}' at position {} (fwd: {})", content, pos, fwd);
 
         if let Some(rope) = rope {
@@ -38,12 +38,12 @@ pub(crate) fn old_make_random_change_raw(oplog: &mut ListOpLog, branch: &ListBra
         }
     } else {
         // Delete something
-        let pos = rng.gen_range(0..doc_len);
+        let pos = rng.random_range(0..doc_len);
         // println!("range {}", u32::min(10, doc_len - pos));
-        let span = rng.gen_range(1..=usize::min(10, doc_len - pos));
+        let span = rng.random_range(1..=usize::min(10, doc_len - pos));
         // dbg!(&state.marker_tree, pos, len);
         // Sometimes deletes happen backwards - ie, via hitting backspace a bunch of times.
-        let fwd = span == 1 || rng.gen_bool(0.5);
+        let fwd = span == 1 || rng.random_bool(0.5);
 
         let del_loc = pos..pos+span;
 

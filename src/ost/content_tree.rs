@@ -1071,12 +1071,11 @@ impl<V: Content> ContentTree<V> {
     /// content.
     pub fn mut_cursor_before_cur_pos(&mut self, content_pos: usize) -> (usize, DeltaCursor) {
         if let Some((pos, mut cursor)) = self.cursor.take() {
-            if let Some(mut pos) = pos {
-                if pos.cur == content_pos {
+            if let Some(mut pos) = pos
+                && pos.cur == content_pos {
                     pos.end += self.slide_cursor_to_next_content(&mut cursor.0, &mut cursor.1);
                     return (pos.end, cursor);
                 }
-            }
 
             // Throw the old cursor away.
             cursor.flush(self);
@@ -1322,11 +1321,10 @@ impl<V: Content> ContentTree<V> {
                 .sum();
 
             let mut delta = None;
-            if let Some((_pos, DeltaCursor(cursor, c_delta))) = self.cursor.as_ref() {
-                if cursor.leaf_idx.0 == idx {
+            if let Some((_pos, DeltaCursor(cursor, c_delta))) = self.cursor.as_ref()
+                && cursor.leaf_idx.0 == idx {
                     delta = Some(*c_delta);
                 }
-            }
 
             // assert_eq!(leaf_size, expect_size);
 
@@ -1512,7 +1510,7 @@ mod test {
     
     use std::slice;
 
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
     use rand::rngs::SmallRng;
 
     use rle::{HasLength, HasRleKey, MergableSpan, SplitableSpan, SplitableSpanHelpers};
@@ -1715,9 +1713,9 @@ mod test {
 
     fn random_entry(rng: &mut SmallRng) -> TestRange {
         TestRange {
-            id: rng.gen_range(0..10),
-            len: rng.gen_range(1..10),
-            is_activated: rng.gen_bool(0.5),
+            id: rng.random_range(0..10),
+            len: rng.random_range(1..10),
+            is_activated: rng.random_bool(0.5),
             exists: true,
         }
     }
@@ -1811,11 +1809,11 @@ mod test {
             //     // verbose = true;
             // }
 
-            if tree.total_len().cur == 0 || rng.gen_bool(0.6) {
+            if tree.total_len().cur == 0 || rng.random_bool(0.6) {
 
                 // tree.dbg_check();
                 // Insert something.
-                let cur_pos = rng.gen_range(0..=tree.total_len().cur);
+                let cur_pos = rng.random_range(0..=tree.total_len().cur);
                 let item = random_entry(&mut rng);
 
                 if verbose { println!("inserting {:?} at {}", item, cur_pos); }
@@ -1854,20 +1852,20 @@ mod test {
                 }
             } else {
 
-                let gen_range = |rng: &mut SmallRng, range: Range<usize>| {
+                let random_range = |rng: &mut SmallRng, range: Range<usize>| {
                     if range.is_empty() { range.start }
-                    else { rng.gen_range(range) }
+                    else { rng.random_range(range) }
                 };
 
                 // Modify something.
                 //
                 // Note this has a subtle sort-of flaw: The first item we touch will always be
                 // active. But we might make some later items active again in the range.
-                let modify_len = gen_range(&mut rng, 1..20.min(tree.total_len().cur));
+                let modify_len = random_range(&mut rng, 1..20.min(tree.total_len().cur));
                 // let modify_len = 1;
                 debug_assert!(modify_len <= tree.total_len().cur);
-                let pos = gen_range(&mut rng, 0..tree.total_len().cur - modify_len);
-                let new_is_active = rng.gen_bool(0.5);
+                let pos = random_range(&mut rng, 0..tree.total_len().cur - modify_len);
+                let new_is_active = rng.random_bool(0.5);
 
                 // Update check tree
                 check_tree.mutate_entries_before_content(pos, modify_len, |e| {

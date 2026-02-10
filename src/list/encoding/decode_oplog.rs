@@ -641,11 +641,10 @@ impl ListOpLog {
 
         // If we already have a doc_id, make sure they match before merging.
         if let Some(file_doc_id) = doc_id {
-            if let Some(local_doc_id) = self.doc_id.as_ref() {
-                if file_doc_id != local_doc_id && !self.is_empty() {
+            if let Some(local_doc_id) = self.doc_id.as_ref()
+                && file_doc_id != local_doc_id && !self.is_empty() {
                     return Err(ParseError::DocIdMismatch);
                 }
-            }
             self.doc_id = Some(file_doc_id.into());
         }
 
@@ -920,17 +919,15 @@ impl ListOpLog {
             patch_chunk.expect_empty()?;
             history_chunk.expect_empty()?;
 
-            if let Some(mut iter) = ins_content {
-                if iter.next().is_some() {
+            if let Some(mut iter) = ins_content
+                && iter.next().is_some() {
                     return Err(ParseError::InvalidContent);
                 }
-            }
 
-            if let Some(mut iter) = del_content {
-                if iter.next().is_some() {
+            if let Some(mut iter) = del_content
+                && iter.next().is_some() {
                     return Err(ParseError::InvalidContent);
                 }
-            }
 
             // dbg!(&version_map);
             file_frontier

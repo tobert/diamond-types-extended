@@ -24,7 +24,7 @@ fn oplog_merge_fuzz(seed: u64, n: usize, verbose: bool) {
 
         // Generate some operations
         for _j in 0..2 {
-            let idx = rng.gen_range(0..docs.len());
+            let idx = rng.random_range(0..docs.len());
 
             // This should + does also work if we set idx=0 and use the same agent for all changes.
             // make_random_change(&mut docs[idx], None, 0, &mut rng);

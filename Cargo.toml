@@ -1,8 +1,8 @@
 [package]
 name = "diamond-types-extended"
-version = "0.1.0"
-edition = "2021"
-authors = ["Amy Tobey <amy@tobert.org>"]
+version = "0.1.1"
+edition = "2024"
+authors = ["Amy Tobey <tobert@gmail.com>"]
 exclude = [
     ".idea",
     "test_data",
@@ -21,16 +21,16 @@ members = ["crates/*"]
 
 [dependencies]
 smartstring = { version = "1.0.1", features = ["serde"] }
-str_indices = "0.4.3"
-smallvec = { version = "2.0.0-alpha.6", features = ["serde"] }
-lazy_static = "1.4.0"
+str_indices = "0.4.4"
+smallvec = { version = "2.0.0-alpha.12", features = ["serde"] }
+lazy_static = "1.5.0"
 
-serde = { version = "1.0.183", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 rle = { version = "0.2.0", path = "crates/rle", features = ["smallvec"] }
 
-serde_json = "1.0.104"
+serde_json = "1.0.149"
 
-bumpalo = { version = "3.16.0", features = ["collections"] }
+bumpalo = { version = "3.19.1", features = ["collections"] }
 
 #jumprope = { path = "../../../jumprope-rs" }
 
@@ -38,28 +38,28 @@ bumpalo = { version = "3.16.0", features = ["collections"] }
 # saves some size in the wasm output size. But I think its better to default to having this feature enabled.
 #jumprope = { path = "../jumprope-rs", version = "1.1.0" }
 jumprope = "1.1.2"
-humansize = "2.0.0"
-num_enum = "0.7.2"
+humansize = "2.1.3"
+num_enum = "0.7.5"
 
 # crc32c might be faster, but it adds 10kb to the wasm bundle size. crc only adds 1kb.
 #crc32c = "0.6"
-crc = "3.0.0"
-lz4_flex = { version = "0.11.3", optional = true }
+crc = "3.4.0"
+lz4_flex = { version = "0.12.0", optional = true }
 
 #bitvec = "1.0.1"
 
 # Needed for macos F_BARRIERFSYNC.
-libc = "0.2.139"
+libc = "0.2.181"
 
-rand = { version = "0.8.5", features = ["small_rng"], optional = true }
+rand = { version = "0.10.0", optional = true }
 
 
 [dev-dependencies]
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = "0.10.0"
 clap = { version = "4", features = ["derive"] }
 crdt-testdata = { path = "crates/crdt-testdata" }
 trace-alloc = { path = "crates/trace-alloc" }
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "sync_benchmark"
