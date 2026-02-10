@@ -5,10 +5,11 @@ use std::ops::{Index, Range};
 use std::slice::SliceIndex;
 use humansize::{DECIMAL, format_size};
 
-use rle::{AppendRle, HasLength, MergableSpan, MergeableIterator, MergeIter, SplitableSpan, SplitableSpanCtx};
-use rle::Searchable;
 use crate::dtrange::DTRange;
-use crate::rle::{HasRleKey, RleKeyedAndSplitable, RleSpanHelpers};
+use super::{
+    AppendRle, HasLength, HasRleKey, MergableSpan, MergeableIterator, MergeIter,
+    RleKeyedAndSplitable, RleSpanHelpers, Searchable, SplitableSpan, SplitableSpanCtx,
+};
 
 use serde::{Deserialize, Serialize};
 

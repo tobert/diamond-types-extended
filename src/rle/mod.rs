@@ -1,12 +1,29 @@
 use std::fmt::{Debug, Formatter};
 
-use rle::{HasRleKey, HasLength, MergableSpan, Searchable, SplitableSpan, SplitableSpanCtx};
-pub use rle_vec::RleVec;
-use crate::dtrange::{debug_lv_raw, DTRange};
+// Vendored from the `rle` crate (v0.2.0) — see upstream.rs for provenance.
+mod upstream;
+pub use upstream::*;
+
+pub mod splitable_span;
+pub use splitable_span::*;
+
+pub mod merge_iter;
+pub use merge_iter::*;
+
+pub mod append_rle;
+pub use append_rle::AppendRle;
+
+pub mod zip;
+pub mod take_max_iter;
+pub mod intersect;
+
+pub mod rlerun;
+pub use rlerun::{RleRun, RleDRun};
 
 pub mod rle_vec;
-// pub mod rle_packed_vec;
-// pub mod rle_packed_vec2;
+pub use rle_vec::RleVec;
+
+use crate::dtrange::{debug_lv_raw, DTRange};
 
 pub trait RleSpanHelpers: HasRleKey + HasLength {
     fn end(&self) -> usize {
@@ -83,16 +100,12 @@ impl<V: SplitableSpanCtx> SplitableSpanCtx for KVPair<V> {
 
     #[inline]
     fn truncate_ctx(&mut self, at: usize, ctx: &Self::Ctx) -> Self {
-        // debug_assert!(at > 0);
-        // debug_assert!(at <= self.len());
-
         let remainder = self.1.truncate_ctx(at, ctx);
         KVPair(self.0 + at, remainder)
     }
 
     #[inline]
     fn truncate_keeping_right_ctx(&mut self, at: usize, ctx: &Self::Ctx) -> Self {
-        // debug_assert!(at <= self.len());
         let old_key = self.0;
         self.0 += at;
         let trimmed = self.1.truncate_keeping_right_ctx(at, ctx);
@@ -152,55 +165,3 @@ pub fn trim<V>(val: V, span: DTRange) -> V
 {
     try_trim(val, span).unwrap()
 }
-
-
-// /// This trait shows up in a few places where we need a way to try and merge items which do not
-// /// store their own size.
-// ///
-// /// I'd love a way to unify this with Mergeable but ???.
-// pub trait MergableUnsized {
-//     // /// Try to append other to self. If possible, self is modified (if necessary) and true is
-//     // /// returned.
-//     // fn try_append(&mut self, offset: usize, other: &Self, other_len: usize) -> bool;
-//     fn can_append(&mut self, offset: usize, other: &Self) -> bool;
-//     fn append(&mut self, offset: usize, other: Self);
-// }
-
-
-// pub fn intersect<A, B>(mut a: A, mut b: B) -> Option<(A, B)>
-//     where A: HasKey + HasLength + SplitableSpan,
-//           B: HasKey + HasLength + SplitableSpan
-// {
-//     let a_span = a.span();
-//     let b_span = b.span();
-//
-//     if a.start <= b.start {
-//         if a.end <= b.start { return None; }
-//         a.truncate_keeping_right(b.start - a.start);
-//     } else { // b.start < a.start
-//         if b.end <= a.start { return None; }
-//         b.truncate_keeping_right(a.start - b.start);
-//     }
-//
-//     // And trim the end too.
-//
-//
-//     Some((a, b))
-// }
-
-
-// #[cfg(test)]
-// mod test {
-//     use rle::test_splitable_methods_valid;
-//
-//     use crate::order::OrderSpan;
-//     use crate::rle::KVPair;
-//
-//     #[test]
-//     fn kvpair_valid() {
-//         test_splitable_methods_valid(KVPair(10, OrderSpan {
-//             order: 10,
-//             len: 5
-//         }));
-//     }
-// }

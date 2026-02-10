@@ -65,9 +65,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smartstring::alias::String as SmartString;
 
-// HasLength is used by internal modules via `use rle::HasLength`
-#[allow(unused_imports)]
-pub(crate) use ::rle::HasLength;
+// HasLength is re-exported from our vendored rle module for internal use.
 use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
