@@ -2,7 +2,8 @@
 name = "diamond-types-extended"
 version = "0.1.2"
 edition = "2024"
-authors = ["Amy Tobey <tobert@gmail.com>"]
+rust-version = "1.85"
+authors = ["Joseph Gentle <me@josephg.com>", "Amy Tobey <tobert@gmail.com>"]
 exclude = [
     ".idea",
     "test_data",
@@ -11,10 +12,10 @@ exclude = [
 license = "ISC"
 description = "Unified CRDT library with ergonomic API - fork of diamond-types"
 repository = "https://github.com/tobert/diamond-types-extended"
-keywords = ["crdt", "collaborative", "sync", "distributed"]
+homepage = "https://github.com/tobert/diamond-types-extended"
+documentation = "https://docs.rs/diamond-types-extended"
+keywords = ["crdt", "collaborative", "sync", "distributed", "realtime"]
 categories = ["data-structures", "concurrency"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
 members = ["crates/crdt-testdata", "crates/trace-alloc"]
