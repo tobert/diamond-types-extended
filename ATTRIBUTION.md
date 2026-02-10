@@ -1,6 +1,6 @@
 # Attribution
 
-Facet is a fork of [diamond-types](https://github.com/josephg/diamond-types), created by Joseph Gentle ([@josephg](https://github.com/josephg)).
+Diamond Types Extended is a fork of [diamond-types](https://github.com/josephg/diamond-types), created by Joseph Gentle ([@josephg](https://github.com/josephg)).
 
 ## Original Work
 
@@ -13,9 +13,9 @@ Diamond Types is a high-performance CRDT (Conflict-free Replicated Data Type) im
 
 The original diamond-types is licensed under the ISC license, which this fork continues to use.
 
-## What Facet Changes
+## What Diamond Types Extended Changes
 
-Facet provides a new public API layer over the diamond-types internals:
+Diamond Types Extended provides a new public API layer over the diamond-types internals:
 
 - Transaction-based mutation pattern (solves Rust borrow checker issues)
 - Unified `Document` container with Map root
@@ -24,6 +24,11 @@ Facet provides a new public API layer over the diamond-types internals:
 - Clean serialization/replication API
 
 The underlying CRDT algorithms and data structures remain largely unchanged.
+
+## Vendored Dependencies
+
+The `rle` crate (v0.2.0, ISC OR Apache-2.0) by Joseph Gentle has been vendored into `src/rle/`.
+The upstream crate is part of the diamond-types repository and is no longer published separately.
 
 ## Links
 
