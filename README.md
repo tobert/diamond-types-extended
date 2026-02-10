@@ -44,7 +44,7 @@ assert_eq!(doc.root().get_text("content").unwrap().content(), "Hello, world!");
 ## Replication
 
 ```rust
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Frontier};
 
 let mut doc_a = Document::new();
 let mut doc_b = Document::new();
@@ -58,7 +58,7 @@ doc_a.transact(alice, |tx| {
 });
 
 // Sync to Bob
-let ops = doc_a.ops_since(&[]).into();
+let ops = doc_a.ops_since(&Frontier::root()).into_owned();
 doc_b.merge_ops(ops).unwrap();
 
 // Bob now has Alice's changes
