@@ -159,7 +159,6 @@ pub type LV = usize;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Serialize, Deserialize)]
-#[serde(untagged)]
 pub(crate) enum Primitive {
     Nil,
     Bool(bool),
@@ -433,7 +432,6 @@ impl SerializedOpsOwned {
 /// This is used for checkouts. This is a value tree.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
-#[serde(untagged)]
 pub(crate) enum DTValue {
     Primitive(Primitive),
     /// A register containing a value (which could be a nested CRDT).

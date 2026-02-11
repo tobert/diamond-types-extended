@@ -415,13 +415,21 @@ impl Document {
     }
 
     /// Serialize the full document state as JSON.
+    ///
+    /// Primitives are serialized naturally (strings as `"foo"`, ints as `42`,
+    /// bools as `true/false`, nil as `null`) so the output is human-friendly
+    /// regardless of the tagged enum representation used by `MaterializedValue`.
     pub fn to_json(&self) -> String {
-        serde_json::to_string(&self.checkout()).unwrap()
+        let json_val = materialized_map_to_json(self.checkout());
+        serde_json::to_string(&json_val).unwrap()
     }
 
     /// Serialize the full document state as pretty-printed JSON.
+    ///
+    /// See [`to_json`](Self::to_json) for details on the output format.
     pub fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(&self.checkout()).unwrap()
+        let json_val = materialized_map_to_json(self.checkout());
+        serde_json::to_string_pretty(&json_val).unwrap()
     }
 
     // ============ Closure-free mutations ============
@@ -784,6 +792,34 @@ impl<'a> Transaction<'a> {
             None
         }
     }
+}
+
+/// Convert a `MaterializedValue` into a natural `serde_json::Value`.
+fn materialized_to_json(mv: MaterializedValue) -> serde_json::Value {
+    match mv {
+        MaterializedValue::Nil => serde_json::Value::Null,
+        MaterializedValue::Bool(b) => serde_json::Value::Bool(b),
+        MaterializedValue::Int(n) => serde_json::Value::Number(n.into()),
+        MaterializedValue::Str(s) | MaterializedValue::Text(s) => serde_json::Value::String(s),
+        MaterializedValue::Map(m) => materialized_map_to_json(m),
+        MaterializedValue::Set(items) => serde_json::Value::Array(
+            items.into_iter().map(|pv| match pv {
+                PrimitiveValue::Nil => serde_json::Value::Null,
+                PrimitiveValue::Bool(b) => serde_json::Value::Bool(b),
+                PrimitiveValue::Int(n) => serde_json::Value::Number(n.into()),
+                PrimitiveValue::Str(s) => serde_json::Value::String(s),
+            }).collect(),
+        ),
+    }
+}
+
+/// Convert a checkout map into a `serde_json::Value::Object`.
+fn materialized_map_to_json(map: BTreeMap<String, MaterializedValue>) -> serde_json::Value {
+    serde_json::Value::Object(
+        map.into_iter()
+            .map(|(k, v)| (k, materialized_to_json(v)))
+            .collect(),
+    )
 }
 
 #[cfg(test)]

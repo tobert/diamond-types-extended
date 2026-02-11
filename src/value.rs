@@ -133,7 +133,6 @@ impl fmt::Display for Value {
 /// nested CRDTs instead.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
-#[serde(untagged)]
 pub enum PrimitiveValue {
     /// Nil/null value.
     Nil,
@@ -206,7 +205,6 @@ impl From<PrimitiveValue> for Value {
 /// the actual nested data rather than CRDT handles.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
-#[serde(untagged)]
 pub enum MaterializedValue {
     /// Nil/null value.
     Nil,
