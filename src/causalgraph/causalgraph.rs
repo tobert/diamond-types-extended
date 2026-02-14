@@ -3,9 +3,10 @@ use smallvec::SmallVec;
 use crate::rle::{HasLength, MergableSpan, SplitableSpan};
 use crate::rle::zip::rle_zip;
 
+use uuid::Uuid;
 use crate::{AgentId, CausalGraph, LV};
 use crate::causalgraph::*;
-use crate::causalgraph::agent_assignment::remote_ids::{RemoteFrontier, RemoteFrontierOwned};
+use crate::causalgraph::agent_assignment::remote_ids::RemoteFrontier;
 use crate::causalgraph::agent_span::AgentSpan;
 use crate::causalgraph::entry::CGEntry;
 use crate::causalgraph::graph::GraphEntrySimple;
@@ -18,8 +19,8 @@ impl CausalGraph {
 
     // There's a lot of methods in agent_assignment that we could wrap here. This is my one
     // admission to practicality.
-    pub fn get_or_create_agent_id(&mut self, name: &str) -> AgentId {
-        self.agent_assignment.get_or_create_agent_id(name)
+    pub fn get_or_create_agent_id(&mut self, uuid: Uuid) -> AgentId {
+        self.agent_assignment.get_or_create_agent_id(uuid)
     }
 
     pub fn num_agents(&self) -> AgentId {
@@ -246,12 +247,8 @@ impl CausalGraph {
         self.graph.make_simple_graph(self.version.as_ref())
     }
 
-    pub fn remote_frontier(&self) -> RemoteFrontier<'_> {
+    pub fn remote_frontier(&self) -> RemoteFrontier {
         self.agent_assignment.local_to_remote_frontier(self.version.as_ref())
-    }
-
-    pub fn remote_frontier_owned(&self) -> RemoteFrontierOwned {
-        self.agent_assignment.local_to_remote_frontier_owned(self.version.as_ref())
     }
 
     #[allow(unused)]
@@ -274,6 +271,7 @@ impl CausalGraph {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use crate::CausalGraph;
 
     #[test]
@@ -281,7 +279,7 @@ mod tests {
         // Regression.
 
         let mut cg = CausalGraph::new();
-        let agent = cg.get_or_create_agent_id("seph");
+        let agent = cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         cg.merge_and_assign(&[], (agent, 0..10).into());
         cg.dbg_check(true);
 

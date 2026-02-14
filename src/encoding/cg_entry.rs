@@ -10,7 +10,7 @@ use crate::encoding::map::{ReadAgentMap, ReadMap, WriteMap};
 use crate::encoding::Merger;
 use crate::encoding::parents::{read_parents_raw, write_parents_raw};
 use crate::encoding::parseerror::ParseError;
-use crate::encoding::tools::{ExtendFromSlice, push_str};
+use crate::encoding::tools::ExtendFromSlice;
 use crate::encoding::varint::{mix_bit_u32, num_encode_zigzag_i64, push_u32, push_u64, push_usize, strip_bit_usize_2};
 
 pub(crate) fn write_cg_aa<R: ExtendFromSlice>(result: &mut R, write_parents: bool, span: AgentSpan,
@@ -43,9 +43,9 @@ pub(crate) fn write_cg_aa<R: ExtendFromSlice>(result: &mut R, write_parents: boo
             // Agent is already known in the file. Just use its mapped ID.
             write_n(mapped_agent, true);
         }
-        Err(name) => {
+        Err(uuid) => {
             write_n(0, false);
-            push_str(result, name);
+            result.extend_from_slice(uuid.as_bytes());
         }
     }
 
@@ -108,8 +108,8 @@ fn read_cg_aa(reader: &mut BufParser, persist: bool, aa: &mut AgentAssignment, a
 
     let (agent, last_seq, idx) = if !is_known {
         if mapped_agent != 0 { return Err(ParseError::GenericInvalidData); }
-        let agent_name = reader.next_str()?;
-        let agent = aa.get_or_create_agent_id(agent_name);
+        let agent_uuid = reader.next_uuid()?;
+        let agent = aa.get_or_create_agent_id(agent_uuid);
         let idx = agent_map.len();
         if persist {
             agent_map.push((agent, 0));
@@ -257,6 +257,7 @@ impl CausalGraph {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use crate::CausalGraph;
 
     fn check_merges_into_subset(mut dest: CausalGraph, from_cg: &CausalGraph) {
@@ -282,8 +283,8 @@ mod test {
         let mut cg = CausalGraph::new();
         check_round_trips(&cg);
 
-        cg.get_or_create_agent_id("a");
-        cg.get_or_create_agent_id("b");
+        cg.get_or_create_agent_id(Uuid::from_u128(0xA));
+        cg.get_or_create_agent_id(Uuid::from_u128(0xB));
         cg.assign_local_op(0, 123);
         cg.assign_local_op(1, 5);
         cg.assign_local_op(0, 10);
@@ -291,8 +292,8 @@ mod test {
 
         let mut cg2 = CausalGraph::new();
         // The agents are swapped.
-        cg2.get_or_create_agent_id("b");
-        cg2.get_or_create_agent_id("a");
+        cg2.get_or_create_agent_id(Uuid::from_u128(0xB));
+        cg2.get_or_create_agent_id(Uuid::from_u128(0xA));
         check_merges_into_subset(cg2, &cg);
     }
 }

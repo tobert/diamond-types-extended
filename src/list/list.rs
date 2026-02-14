@@ -1,5 +1,6 @@
 use std::ops::Range;
 use humansize::{BINARY, format_size};
+use uuid::Uuid;
 use crate::list::{ListBranch, ListCRDT, ListOpLog};
 use crate::{AgentId, Frontier, LV};
 use crate::rle::HasLength;
@@ -216,20 +217,21 @@ impl ListCRDT {
         self.oplog.print_stats(detailed);
     }
 
-    pub fn get_or_create_agent_id(&mut self, name: &str) -> AgentId {
-        self.oplog.get_or_create_agent_id(name)
+    pub fn get_or_create_agent_id(&mut self, uuid: Uuid) -> AgentId {
+        self.oplog.get_or_create_agent_id(uuid)
     }
 }
 
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
 
     #[test]
     fn smoke() {
         let mut doc = ListCRDT::new();
-        doc.get_or_create_agent_id("seph"); // 0
+        doc.get_or_create_agent_id(Uuid::from_u128(0x5E98)); // 0
         doc.insert(0, 0, "hi".into());
         doc.insert(0, 1, "yooo".into());
         // "hyoooi"

@@ -1,11 +1,11 @@
 //! Integration tests for Set CRDT
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Uuid};
 
 #[test]
 fn test_set_creation() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let set_id = doc.transact(alice, |tx| {
         tx.root().create_set("tags")
@@ -20,7 +20,7 @@ fn test_set_creation() {
 #[test]
 fn test_set_add() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let set_id = doc.transact(alice, |tx| {
         tx.root().create_set("tags")
@@ -45,7 +45,7 @@ fn test_set_add() {
 #[test]
 fn test_set_remove() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let set_id = doc.transact(alice, |tx| {
         tx.root().create_set("tags")
@@ -75,7 +75,7 @@ fn test_set_remove() {
 #[test]
 fn test_set_iteration() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let set_id = doc.transact(alice, |tx| {
         tx.root().create_set("nums")
@@ -96,7 +96,7 @@ fn test_set_iteration() {
 #[test]
 fn test_set_mixed_types() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let set_id = doc.transact(alice, |tx| {
         tx.root().create_set("mixed")

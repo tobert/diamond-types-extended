@@ -1,6 +1,6 @@
 //! Integration tests for the Document API
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Uuid};
 
 #[test]
 fn test_document_creation() {
@@ -13,9 +13,9 @@ fn test_document_creation() {
 fn test_agent_management() {
     let mut doc = Document::new();
 
-    let alice = doc.get_or_create_agent("alice");
-    let alice2 = doc.get_or_create_agent("alice");
-    let bob = doc.get_or_create_agent("bob");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let alice2 = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc.create_agent(Uuid::from_u128(0xB0B));
 
     assert_eq!(alice, alice2); // Same name = same ID
     assert_ne!(alice, bob);    // Different names = different IDs
@@ -24,7 +24,7 @@ fn test_agent_management() {
 #[test]
 fn test_basic_map_operations() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     // Set various value types
     doc.transact(alice, |tx| {
@@ -50,7 +50,7 @@ fn test_basic_map_operations() {
 #[test]
 fn test_map_overwrite() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     doc.transact(alice, |tx| {
         tx.root().set("key", "first");
@@ -66,7 +66,7 @@ fn test_map_overwrite() {
 #[test]
 fn test_nested_maps() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     // Create nested structure
     doc.transact(alice, |tx| {
@@ -99,7 +99,7 @@ fn test_nested_maps() {
 #[test]
 fn test_map_keys_iteration() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     doc.transact(alice, |tx| {
         tx.root().set("c", 3);

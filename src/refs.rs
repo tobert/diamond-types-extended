@@ -168,10 +168,10 @@ impl<'a> TextRef<'a> {
     /// # Example
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc.transact(alice, |tx| {
     ///     let id = tx.root().create_text("content");
@@ -312,13 +312,13 @@ impl<'a> RegisterRef<'a> {
 
 #[cfg(test)]
 mod tests {
-    
+    use uuid::Uuid;
     use crate::Document;
 
     #[test]
     fn test_map_ref_basic() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("key", "value");
@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn test_map_ref_nested() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().create_map("nested");
@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn test_text_ref_slice() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             let id = tx.root().create_text("content");
@@ -381,7 +381,7 @@ mod tests {
     #[test]
     fn test_text_ref_slice_unicode() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             let id = tx.root().create_text("emoji");
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn test_text_ref_chars() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             let id = tx.root().create_text("content");
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn test_map_ref_keys_owned() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("b", 2i64);
@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_map_ref_entries_owned() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("name", "Alice");

@@ -11,7 +11,7 @@ use crate::list::op_metrics::ListOpMetrics;
 use crate::list::operation::ListOpKind;
 use crate::dtrange::DTRange;
 use crate::encoding::tools::calc_checksum;
-use crate::list::encoding::encode_tools::{Merger, push_leb_chunk, push_leb_str, push_leb_u32, push_leb_usize, push_u32_le, write_leb_bit_run};
+use crate::list::encoding::encode_tools::{Merger, push_leb_chunk, push_leb_u32, push_leb_usize, push_u32_le, write_leb_bit_run};
 use crate::list::encoding::leb::{encode_leb_u32, encode_leb_usize, num_encode_zigzag_isize_old};
 use crate::listmerge::merge::TransformedResultRaw;
 const ALLOW_VERBOSE: bool = true;
@@ -176,7 +176,7 @@ impl AgentMapping {
         self.map[agent].map_or_else(|| {
             let mapped = self.next_mapped_agent;
             self.map[agent] = Some((mapped, 0));
-            push_leb_str(&mut self.output, oplog.cg.agent_assignment.client_data[agent].name.as_str());
+            self.output.extend_from_slice(oplog.cg.agent_assignment.client_data[agent].name.as_bytes());
             // println!("Mapped agent {} -> {}", oplog.cg.client_data[agent].name, mapped);
             self.next_mapped_agent += 1;
             mapped
@@ -938,6 +938,7 @@ impl ListOpLog {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use crate::list::encoding::EncodeOptions;
     use crate::list::{ListCRDT, ListOpLog};
 
@@ -945,7 +946,7 @@ mod tests {
     #[ignore]
     fn encoding_smoke_test() {
         let mut doc = ListCRDT::new();
-        doc.get_or_create_agent_id("seph");
+        doc.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         doc.insert(0, 0, "hi there");
 
         let d1 = doc.oplog.encode_simple(EncodeOptions::default());
@@ -958,8 +959,8 @@ mod tests {
     #[test]
     fn encode_from_version() {
         let mut doc = ListCRDT::new();
-        doc.get_or_create_agent_id("seph"); // 0
-        doc.get_or_create_agent_id("mike"); // 1
+        doc.get_or_create_agent_id(Uuid::from_u128(0x5E98)); // 0
+        doc.get_or_create_agent_id(Uuid::from_u128(0x341CE)); // 1
         let _t1 = doc.insert(0, 0, "hi from seph!\n");
         let mut ops2 = doc.oplog.clone();
 
@@ -978,7 +979,7 @@ mod tests {
     #[test]
     fn encode_simple() {
         let mut oplog = ListOpLog::new();
-        oplog.get_or_create_agent_id("x"); // 0
+        oplog.get_or_create_agent_id(Uuid::from_u128(0x1)); // 0
         oplog.add_insert(0, 0, "abc\n");
         // let data = oplog.encode(EncodeOptions::default());
         // let hex_str = data.iter().map(|x| format!("{:02X} ({})", x, std::char::from_u32(*x as u32).unwrap())).collect::<Vec<_>>();

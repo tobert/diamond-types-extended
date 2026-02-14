@@ -6,7 +6,7 @@
 //!
 //! Test coverage informed by Gemini review recommendations.
 
-use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned, Uuid};
 
 mod helpers {
     use diamond_types_extended::{Document, Frontier};
@@ -61,7 +61,7 @@ fn access_nonexistent_path_returns_none() {
 #[test]
 fn access_deep_nonexistent_path() {
     let mut doc = Document::new();
-    let agent = doc.get_or_create_agent("test");
+    let agent = doc.create_agent(Uuid::from_u128(0x7E57));
 
     doc.transact(agent, |tx| {
         tx.root().create_map("level1");
@@ -77,7 +77,7 @@ fn access_deep_nonexistent_path() {
 fn access_path_before_and_after_merge() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // Alice creates nested structure
     doc_a.transact(alice, |tx| {
@@ -117,8 +117,8 @@ fn text_sequential_sync_roundtrip() {
     // This validates the basic text CRDT sync works before concurrent editing
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates text with initial content
     doc_a.transact(alice, |tx| {
@@ -156,8 +156,8 @@ fn text_sequential_sync_roundtrip() {
 fn concurrent_text_overlapping_edits() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Setup: both have "Hello world"
     doc_a.transact(alice, |tx| {
@@ -196,9 +196,9 @@ fn merge_order_independence_three_peers() {
     let mut doc_b = Document::new();
     let mut doc_c = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
-    let carol = doc_c.get_or_create_agent("carol");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+    let carol = doc_c.create_agent(Uuid::from_u128(0xCA201));
 
     // Each makes independent changes
     doc_a.transact(alice, |tx| {
@@ -248,7 +248,7 @@ fn diamond_merge_converges() {
     //     D  (merged)
 
     let mut origin = Document::new();
-    let agent = origin.get_or_create_agent("origin");
+    let agent = origin.create_agent(Uuid::from_u128(0x0216));
 
     // Use map values instead of text to avoid text CRDT merge complexity
     origin.transact(agent, |tx| {
@@ -262,8 +262,8 @@ fn diamond_merge_converges() {
     doc_b.merge_ops(ops_origin.clone()).unwrap();
     doc_c.merge_ops(ops_origin).unwrap();
 
-    let bob = doc_b.get_or_create_agent("bob");
-    let carol = doc_c.get_or_create_agent("carol");
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+    let carol = doc_c.create_agent(Uuid::from_u128(0xCA201));
 
     // Concurrent edits to different keys
     doc_b.transact(bob, |tx| {
@@ -303,8 +303,8 @@ fn diamond_merge_converges() {
 fn concurrent_text_and_map_at_same_key() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates Text, Bob creates Map at same key
     doc_a.transact(alice, |tx| {
@@ -338,7 +338,7 @@ fn ops_are_idempotent() {
     // This simulates network retry scenarios
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     doc_a.transact(alice, |tx| {
         tx.root().set("key", "value");
@@ -373,7 +373,7 @@ fn ops_are_idempotent() {
 fn self_merge_is_noop() {
     // Merging a document's ops back into itself should be a no-op
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     doc.transact(alice, |tx| {
         tx.root().set("key", "value");
@@ -402,8 +402,8 @@ fn map_concurrent_update_and_tombstone() {
     // Test concurrent update vs set_nil (tombstone)
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Setup initial state
     doc_a.transact(alice, |tx| {
@@ -442,8 +442,8 @@ fn set_concurrent_add_and_remove() {
     // Test add-wins semantics for concurrent add/remove
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates set with initial item
     doc_a.transact(alice, |tx| {
@@ -496,8 +496,8 @@ fn set_concurrent_different_items() {
     // Test concurrent adds of different items
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates set
     doc_a.transact(alice, |tx| {
@@ -542,11 +542,11 @@ fn multi_agent_offline_reconnect_convergence() {
     // Each goes offline, makes edits, then reconnects in a realistic pattern
 
     let mut docs: Vec<Document> = (0..5).map(|_| Document::new()).collect();
-    let names = ["alice", "bob", "carol", "dave", "eve"];
-    let agents: Vec<_> = names
+    let uuids = [Uuid::from_u128(0xA11CE), Uuid::from_u128(0xB0B), Uuid::from_u128(0xCA201), Uuid::from_u128(0xDA7E), Uuid::from_u128(0xE7E)];
+    let agents: Vec<_> = uuids
         .iter()
         .enumerate()
-        .map(|(i, name)| docs[i].get_or_create_agent(name))
+        .map(|(i, uuid)| docs[i].create_agent(*uuid))
         .collect();
 
     // Phase 1: Initial shared state (all online)
@@ -626,7 +626,7 @@ fn multi_agent_offline_reconnect_convergence() {
             doc.checkout(),
             "Document {} ({}) should match reference after full sync",
             i,
-            names[i]
+            uuids[i]
         );
     }
 

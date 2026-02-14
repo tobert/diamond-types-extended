@@ -1,5 +1,6 @@
 use jumprope::JumpRope;
 use rand::prelude::*;
+use uuid::Uuid;
 use crate::list_fuzzer_tools::{choose_2, fuzz_multithreaded, make_random_change};
 use crate::listmerge::simple_oplog::{SimpleBranch, SimpleOpLog};
 
@@ -19,7 +20,7 @@ fn random_single_document() {
             branch.version = oplog.cg.version.clone();
         }
 
-        make_random_change(&mut oplog, &mut branch, Some(&mut expected_content), "seph", &mut rng);
+        make_random_change(&mut oplog, &mut branch, Some(&mut expected_content), Uuid::from_u128(0x5E98), &mut rng);
 
         oplog.merge_all(&mut branch);
         assert_eq!(branch.content, expected_content);
@@ -34,7 +35,7 @@ fn merge_fuzz(seed: u64, verbose: bool) {
     let mut oplog = SimpleOpLog::new();
     let mut branches = [SimpleBranch::new(), SimpleBranch::new(), SimpleBranch::new()];
 
-    let agents = ["a", "b", "c"];
+    let agents = [Uuid::from_u128(0xA), Uuid::from_u128(0xB), Uuid::from_u128(0xC)];
 
     for _i in 0..300 {
         if verbose { println!("\n\ni {}", _i); }

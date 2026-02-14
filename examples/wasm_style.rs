@@ -6,11 +6,11 @@
 //!
 //! Run with: cargo run --example wasm_style
 
-use diamond_types_extended::{Document, Frontier};
+use diamond_types_extended::{Document, Frontier, Uuid};
 
 fn main() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     println!("=== DocumentWriter: Closure-Free Mutations ===\n");
 

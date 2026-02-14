@@ -5,7 +5,7 @@
 
 use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned, Uuid};
 
 /// Build a document with many text operations from a single agent
 fn build_single_agent_document(num_ops: usize) -> Document {
@@ -31,8 +31,8 @@ fn build_single_agent_document(num_ops: usize) -> Document {
 /// This stresses the agent boundary splitting logic
 fn build_multi_agent_document(num_ops: usize) -> Document {
     let mut doc = Document::new();
-    let agent_a = doc.get_or_create_agent("alice");
-    let agent_b = doc.get_or_create_agent("bob");
+    let agent_a = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let agent_b = doc.create_agent(Uuid::from_u128(0xB0B));
 
     doc.transact(agent_a, |tx| {
         tx.root().create_text("content");

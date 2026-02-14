@@ -3,7 +3,7 @@
 //! These tests specifically exercise the agent boundary splitting and LV mapping
 //! logic that was fixed in the convergence bug patch.
 
-use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned, Uuid};
 
 /// Sync helper: cross-sync two documents
 fn cross_sync(a: &mut Document, b: &mut Document) {
@@ -43,8 +43,8 @@ fn test_agent_boundary_splitting_zebra() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates the text field
     doc_a.transact(alice, |tx| {
@@ -109,8 +109,8 @@ fn test_non_contiguous_lv_merging() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates text and writes "Part1"
     doc_a.transact(alice, |tx| {
@@ -174,8 +174,8 @@ fn test_interleaved_text_and_map_ops() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates text
     doc_a.transact(alice, |tx| {
@@ -241,9 +241,9 @@ fn test_multi_hop_sync_attribution() {
     let mut doc_b = Document::new();
     let mut doc_c = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
-    let carol = doc_c.get_or_create_agent("carol");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+    let carol = doc_c.create_agent(Uuid::from_u128(0xCA201));
 
     // Alice creates document structure and initial content
     doc_a.transact(alice, |tx| {
@@ -315,11 +315,11 @@ fn test_multi_hop_sync_attribution() {
 #[test]
 fn test_long_chain_sync_attribution() {
     let mut docs: Vec<Document> = (0..5).map(|_| Document::new()).collect();
-    let names = ["alice", "bob", "carol", "dave", "eve"];
-    let agents: Vec<_> = names
+    let uuids = [Uuid::from_u128(0xA11CE), Uuid::from_u128(0xB0B), Uuid::from_u128(0xCA201), Uuid::from_u128(0xDA7E), Uuid::from_u128(0xE7E)];
+    let agents: Vec<_> = uuids
         .iter()
         .enumerate()
-        .map(|(i, name)| docs[i].get_or_create_agent(name))
+        .map(|(i, uuid)| docs[i].create_agent(*uuid))
         .collect();
 
     // Alice creates initial structure
@@ -366,8 +366,8 @@ fn test_agent_id_preservation_through_hops() {
     let mut doc_b = Document::new();
     let mut doc_c = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice_unique_name");
-    let bob = doc_b.get_or_create_agent("bob_unique_name");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates text with unique agent name
     doc_a.transact(alice, |tx| {

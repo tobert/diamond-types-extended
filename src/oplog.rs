@@ -3,6 +3,7 @@ use smallvec::smallvec;
 use std::cmp::Ordering;
 use jumprope::JumpRopeBuf;
 use smartstring::alias::String as SmartString;
+use uuid::Uuid;
 
 use serde::{Serialize, Serializer};
 
@@ -560,16 +561,16 @@ impl OpLog {
 }
 
 impl OpLog {
-    fn crdt_name_to_remote(&self, crdt: LVKey) -> RemoteVersion<'_> {
+    fn crdt_name_to_remote(&self, crdt: LVKey) -> RemoteVersion {
         if crdt == ROOT_CRDT_ID {
-            RemoteVersion("ROOT", 0)
+            RemoteVersion(Uuid::nil(), 0)
         } else {
             self.cg.agent_assignment.local_to_remote_version(crdt)
         }
     }
 
     fn remote_to_crdt_name(&self, crdt_rv: RemoteVersion) -> LVKey {
-        if crdt_rv.0 == "ROOT" { ROOT_CRDT_ID }
+        if crdt_rv.0.is_nil() { ROOT_CRDT_ID }
         else { self.cg.agent_assignment.remote_to_local_version(crdt_rv) }
     }
 
@@ -674,7 +675,7 @@ impl OpLog {
 
                         // Use the correct agent and sequence for this chunk
                         let rv = RemoteVersion(
-                            self.cg.agent_assignment.get_agent_name(agent_span.agent),
+                            self.cg.agent_assignment.get_agent_uuid(agent_span.agent),
                             agent_span.seq_range.start
                         );
                         text_ops.push((crdt_name, rv, op_out));
@@ -831,7 +832,7 @@ impl OpLog {
                     SerializedSetOp::Remove { value, tags } => {
                         // Convert RemoteVersion tags back to local LVs
                         let local_tags: Vec<_> = tags.iter()
-                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(RemoteVersion::from(rv)))
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(*rv))
                             .collect();
                         self.remote_set_remove(crdt_id, lv, value, local_tags);
                     }
@@ -859,9 +860,9 @@ impl OpLog {
         if new_range.is_empty() { return Ok(new_range); }
 
         for (crdt_r_name, rv, key, val) in changes.map_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
             if new_range.contains(lv) {
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 self.remote_map_set(crdt_id, lv, &key, val);
             }
         }
@@ -871,7 +872,7 @@ impl OpLog {
             // We need to find which sequences are NEW (not already known).
             // A sequence is new if its LV falls within new_range.
 
-            let agent = self.cg.agent_assignment.get_agent_id(rv.0.as_str());
+            let agent = self.cg.agent_assignment.get_agent_id(rv.0);
             let agent = match agent {
                 Some(a) => a,
                 None => continue, // Agent not found, skip
@@ -931,23 +932,23 @@ impl OpLog {
                     chunk_op.truncate_ctx(content_len, &changes.text_context);
                 }
 
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 let op = chunk_op.to_operation(&changes.text_context);
                 self.remote_text_op(crdt_id, apply_lv_range, op);
             }
         }
 
         for (crdt_r_name, rv, set_op) in changes.set_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
             if new_range.contains(lv) {
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 match set_op {
                     SerializedSetOp::Add { value } => {
                         self.remote_set_add(crdt_id, lv, value, lv);
                     }
                     SerializedSetOp::Remove { value, tags } => {
                         let local_tags: Vec<_> = tags.iter()
-                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(rv.into()))
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(*rv))
                             .collect();
                         self.remote_set_remove(crdt_id, lv, value, local_tags);
                     }
@@ -967,6 +968,7 @@ impl OpLog {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use crate::{CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID};
     use crate::list::operation::TextOperation;
 
@@ -974,7 +976,7 @@ mod tests {
     fn smoke() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(123)));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(321)));
 
@@ -986,7 +988,7 @@ mod tests {
     fn text() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         let text = oplog.local_map_set(seph, ROOT_CRDT_ID, "content", CreateValue::NewCRDT(CRDTKind::Text));
         oplog.local_text_op(seph, text, TextOperation::new_insert(0, "Oh hai!"));
         oplog.local_text_op(seph, text, TextOperation::new_delete(0..3));
@@ -1022,12 +1024,12 @@ mod tests {
         let mut oplog2 = OpLog::new();
 
 
-        let seph = oplog1.cg.get_or_create_agent_id("seph");
+        let seph = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         let text = oplog1.local_map_set(seph, ROOT_CRDT_ID, "content", CreateValue::NewCRDT(CRDTKind::Text));
         oplog1.local_text_op(seph, text, TextOperation::new_insert(0, "Oh hai!"));
 
 
-        let kaarina = oplog2.cg.get_or_create_agent_id("kaarina");
+        let kaarina = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xCAA212A));
         let title = oplog2.local_map_set(kaarina, ROOT_CRDT_ID, "title", CreateValue::NewCRDT(CRDTKind::Text));
         oplog2.local_text_op(kaarina, title, TextOperation::new_insert(0, "Better keep it clean"));
 
@@ -1054,7 +1056,7 @@ mod tests {
     fn checkout() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(123)));
         let map = oplog.local_map_set(seph, ROOT_CRDT_ID, "yo", CreateValue::NewCRDT(CRDTKind::Map));
         oplog.local_map_set(seph, map, "yo", CreateValue::Primitive(Primitive::Str("blah".into())));
@@ -1066,7 +1068,7 @@ mod tests {
     #[test]
     fn overwrite_local() {
         let mut oplog = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let child_obj = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Map));
         let text_item = oplog.local_map_set(seph, child_obj, "text_item", CreateValue::NewCRDT(CRDTKind::Text));
@@ -1083,7 +1085,7 @@ mod tests {
     #[test]
     fn overwrite_remote() {
         let mut oplog = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let child_obj = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Map));
         let text_item = oplog.local_map_set(seph, child_obj, "text_item", CreateValue::NewCRDT(CRDTKind::Text));
@@ -1102,7 +1104,7 @@ mod tests {
         // Regression.
         let mut oplog = OpLog::new();
         let mut oplog2 = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let text_item = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Text));
         oplog.local_text_op(seph, text_item, TextOperation::new_insert(0, "a"));
@@ -1125,8 +1127,8 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Alice: creates nested structure
         let user = oplog1.local_map_set(alice, ROOT_CRDT_ID, "user",
@@ -1138,7 +1140,7 @@ mod tests {
         oplog1.local_text_op(alice, bio, TextOperation::new_insert(0, "Hello!"));
 
         // Bob: makes concurrent changes
-        oplog2.cg.get_or_create_agent_id("alice"); // Know about Alice
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE)); // Know about Alice
         let settings = oplog2.local_map_set(bob, ROOT_CRDT_ID, "settings",
             CreateValue::NewCRDT(CRDTKind::Map));
         oplog2.local_map_set(bob, settings, "theme",
@@ -1162,7 +1164,7 @@ mod tests {
     #[test]
     fn standalone_register_nested_in_map() {
         let mut oplog = OpLog::new();
-        let alice = oplog.cg.get_or_create_agent_id("alice");
+        let alice = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a register inside the root map
         let counter_reg = oplog.local_map_set(alice, ROOT_CRDT_ID, "counter",
@@ -1183,7 +1185,7 @@ mod tests {
     #[test]
     fn set_crdt_creation() {
         let mut oplog = OpLog::new();
-        let alice = oplog.cg.get_or_create_agent_id("alice");
+        let alice = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set inside the root map
         let tags_set = oplog.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1206,7 +1208,7 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set and add elements
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1238,7 +1240,7 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set, add elements, then remove some
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1273,8 +1275,8 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Alice creates a set
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1343,12 +1345,12 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Both know about each other
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Concurrent writes to same key
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "color",
@@ -1382,11 +1384,11 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Concurrent writes to different keys
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "name",
@@ -1412,10 +1414,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Round 1: concurrent writes
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "x",
@@ -1449,10 +1451,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates set and adds element
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1486,10 +1488,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates set and adds element
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1521,15 +1523,15 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         // Everyone knows everyone
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // Alice creates set
@@ -1565,14 +1567,14 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // Alice creates set and adds element
@@ -1614,10 +1616,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Both create a nested map at "data"
         let map1 = oplog1.local_map_set(alice, ROOT_CRDT_ID, "data",
@@ -1644,10 +1646,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates a set
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1686,14 +1688,14 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // All three write to "winner" concurrently
@@ -1721,10 +1723,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice does many operations
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "numbers",
@@ -1763,10 +1765,10 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new(); // Fresh peer joins late
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create structure
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1799,13 +1801,13 @@ mod tests {
 
     /// Create N oplogs with registered agents
     fn create_oplogs(n: usize) -> Vec<OpLog> {
-        let agent_names: Vec<String> = (0..n).map(|i| format!("agent_{}", i)).collect();
+        let agent_uuids: Vec<Uuid> = (0..n).map(|i| Uuid::from_u128(0xA6E270 + i as u128)).collect();
         let mut oplogs: Vec<OpLog> = (0..n).map(|_| OpLog::new()).collect();
 
         // Register all agents in all oplogs
         for oplog in &mut oplogs {
-            for name in &agent_names {
-                oplog.cg.get_or_create_agent_id(name);
+            for uuid in &agent_uuids {
+                oplog.cg.get_or_create_agent_id(*uuid);
             }
         }
         oplogs
@@ -1836,7 +1838,7 @@ mod tests {
 
         // Each writer writes to "counter"
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             oplog.local_map_set(agent, ROOT_CRDT_ID, "counter",
                 CreateValue::Primitive(Primitive::I64(i as i64)));
         }
@@ -1864,7 +1866,7 @@ mod tests {
 
         // Each writer does multiple writes before sync
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             for j in 0..OPS_PER_WRITER {
                 oplog.local_map_set(agent, ROOT_CRDT_ID, "value",
                     CreateValue::Primitive(Primitive::I64((i * 100 + j) as i64)));
@@ -1891,7 +1893,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // First writer creates the set
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let _set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "tags",
             CreateValue::NewCRDT(CRDTKind::Set));
 
@@ -1900,7 +1902,7 @@ mod tests {
 
         // Each writer adds their own tags
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["tags"]);
             for j in 0..5 {
                 oplog.local_set_add(agent, set_id,
@@ -1933,7 +1935,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // Create set and add initial elements
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "items",
             CreateValue::NewCRDT(CRDTKind::Set));
         for i in 0..10 {
@@ -1945,7 +1947,7 @@ mod tests {
 
         // Half add new elements, half try to remove existing ones
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["items"]);
 
             if i % 2 == 0 {
@@ -1982,7 +1984,7 @@ mod tests {
 
         // Each writer writes to their own key AND a shared key
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             // Own key
             oplog.local_map_set(agent, ROOT_CRDT_ID, &format!("writer_{}", i),
                 CreateValue::Primitive(Primitive::I64(i as i64)));
@@ -2016,7 +2018,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // Create shared set
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let _ = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "data",
             CreateValue::NewCRDT(CRDTKind::Set));
 
@@ -2031,7 +2033,7 @@ mod tests {
 
         // Everyone adds to the set
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["data"]);
             oplog.local_set_add(agent, set_id, Primitive::I64(i as i64));
         }

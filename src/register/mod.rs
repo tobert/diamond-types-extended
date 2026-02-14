@@ -269,6 +269,7 @@ impl LWWRegister {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
     use crate::Primitive;
     use crate::causalgraph::CausalGraph;
@@ -289,7 +290,7 @@ mod tests {
     #[test]
     fn register_info_get_value() {
         let mut cg = CausalGraph::new();
-        let agent = cg.get_or_create_agent_id("alice");
+        let agent = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
         let lv = cg.assign_local_op(agent, 1).start;
 
         let mut info = RegisterInfo::new();
@@ -302,7 +303,7 @@ mod tests {
     #[test]
     fn lww_register_basic() {
         let mut cg = CausalGraph::new();
-        let agent = cg.get_or_create_agent_id("bob");
+        let agent = cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
         let lv = cg.assign_local_op(agent, 1).start;
 
         let mut reg = LWWRegister::new(0);
@@ -318,8 +319,8 @@ mod tests {
     fn register_concurrent_writes_lww() {
         // Two agents write concurrently - higher (agent_name, seq) wins
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
-        let bob = cg.get_or_create_agent_id("bob");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Both write from same parent (root) - concurrent!
         let parents = cg.version.clone();
@@ -333,9 +334,9 @@ mod tests {
         // Both should be in supremum (concurrent)
         assert_eq!(info.supremum.len(), 2);
 
-        // Tie-break: "bob" > "alice" alphabetically
+        // Tie-break: 0xA11CE > 0xB0B by UUID ordering
         let value = info.get_value(&cg.agent_assignment).unwrap();
-        assert_eq!(*value, CreateValue::Primitive(Primitive::Str("bob_val".into())));
+        assert_eq!(*value, CreateValue::Primitive(Primitive::Str("alice_val".into())));
 
         // Verify conflicts are accessible
         let state = info.get_state(&cg.agent_assignment).unwrap();
@@ -346,7 +347,7 @@ mod tests {
     fn register_remote_push_causal_dominance() {
         // Remote op that causally dominates existing value
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         let lv1 = cg.assign_local_op(alice, 1).start;
         let lv2 = cg.assign_local_op(alice, 1).start; // Causally after lv1
@@ -368,9 +369,9 @@ mod tests {
     fn register_three_way_concurrent() {
         // Three concurrent writes - all should be in supremum
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
-        let bob = cg.get_or_create_agent_id("bob");
-        let carol = cg.get_or_create_agent_id("carol");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         let parents = cg.version.clone();
         let lv_a = cg.assign_local_op_with_parents(parents.as_ref(), alice, 1).start;
@@ -401,7 +402,7 @@ mod tests {
     #[test]
     fn register_duplicate_remote_push() {
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
         let lv = cg.assign_local_op(alice, 1).start;
 
         let mut info = RegisterInfo::new();
@@ -422,9 +423,9 @@ mod tests {
             let mut rng = SmallRng::seed_from_u64(seed);
             let mut cg = CausalGraph::new();
 
-            let agents: Vec<_> = ["alice", "bob", "carol"]
+            let agents: Vec<_> = [Uuid::from_u128(0xA11CE), Uuid::from_u128(0xB0B), Uuid::from_u128(0xCA201)]
                 .iter()
-                .map(|name| cg.get_or_create_agent_id(name))
+                .map(|uuid| cg.get_or_create_agent_id(*uuid))
                 .collect();
 
             // Two registers that should converge

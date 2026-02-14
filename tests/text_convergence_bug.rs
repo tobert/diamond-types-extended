@@ -2,7 +2,7 @@
 //!
 //! After full mesh sync, documents have different text content.
 
-use diamond_types_extended::{Document, Frontier, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, SerializedOpsOwned, Uuid};
 
 fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
     let ops_a: SerializedOpsOwned = docs[a].ops_since(&Frontier::root()).into();
@@ -15,11 +15,11 @@ fn sync_pair(docs: &mut [Document], a: usize, b: usize) {
 fn minimal_three_way_text_divergence() {
     // Simplest case: 3 peers, concurrent appends
     let mut docs: Vec<Document> = (0..3).map(|_| Document::new()).collect();
-    let names = ["alice", "bob", "carol"];
-    let agents: Vec<_> = names
+    let uuids = [Uuid::from_u128(0xA11CE), Uuid::from_u128(0xB0B), Uuid::from_u128(0xCA201)];
+    let agents: Vec<_> = uuids
         .iter()
         .enumerate()
-        .map(|(i, name)| docs[i].get_or_create_agent(name))
+        .map(|(i, uuid)| docs[i].create_agent(*uuid))
         .collect();
 
     // Setup: all have "Hello"
@@ -37,7 +37,7 @@ fn minimal_three_way_text_divergence() {
     // Verify initial state
     for (i, doc) in docs.iter().enumerate() {
         let text = doc.root().get_text("doc").unwrap().content();
-        assert_eq!(text, "Hello", "Doc {} should have 'Hello'", names[i]);
+        assert_eq!(text, "Hello", "Doc {} should have 'Hello'", uuids[i]);
     }
 
     // Concurrent appends (no overlap - all at end)
@@ -65,7 +65,7 @@ fn minimal_three_way_text_divergence() {
         assert_eq!(
             reference, text,
             "Doc {} should match reference",
-            names[i]
+            uuids[i]
         );
     }
 }
@@ -75,8 +75,8 @@ fn two_peer_concurrent_append() {
     // Even simpler: 2 peers
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Setup
     doc_a.transact(alice, |tx| {

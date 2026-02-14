@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example sync
 
-use diamond_types_extended::{Document, Frontier};
+use diamond_types_extended::{Document, Frontier, Uuid};
 
 fn main() {
     println!("=== Diamond Types Extended Sync Example ===\n");
@@ -17,8 +17,8 @@ fn main() {
     let mut doc_alice = Document::new();
     let mut doc_bob = Document::new();
 
-    let alice = doc_alice.get_or_create_agent("alice");
-    let bob = doc_bob.get_or_create_agent("bob");
+    let alice = doc_alice.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_bob.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates the initial structure
     println!("Alice creates initial document...");

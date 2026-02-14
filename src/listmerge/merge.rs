@@ -201,15 +201,15 @@ impl M2Tracker {
                 Ordering::Equal => {
                     if item.origin_right == other_entry.origin_right {
                         // Origin_right matches. Items are concurrent. Order by agent names.
-                        let my_name = aa.get_agent_name(agent);
+                        let my_name = aa.get_agent_uuid(agent);
 
                         let (other_agent, other_seq) = aa.local_to_agent_version(other_lv);
-                        let other_name = aa.get_agent_name(other_agent);
+                        let other_name = aa.get_agent_uuid(other_agent);
                         // eprintln!("concurrent insert at the same place {} ({}) vs {} ({})", item.id.start, my_name, other_lv, other_name);
 
                         // It's possible for a user to conflict with themselves if they commit to
                         // multiple branches. In this case, sort by seq number.
-                        let ins_here = match my_name.cmp(other_name) {
+                        let ins_here = match my_name.cmp(&other_name) {
                             Ordering::Less => true,
                             Ordering::Equal => {
                                 // We can't compare versions here because sequence numbers could be
@@ -978,6 +978,7 @@ impl TextInfo {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use std::fs::File;
     use std::io::Read;
 
@@ -994,7 +995,7 @@ mod test {
     #[test]
     fn test_ff() {
         let mut list = SimpleOpLog::new();
-        list.add_insert("a", 0, "aaa");
+        list.add_insert(Uuid::from_u128(0xA), 0, "aaa");
 
         let mut result = JumpRopeBuf::new();
         list.merge_raw(&mut result, &[], &[1]);
@@ -1006,9 +1007,9 @@ mod test {
     #[test]
     fn test_ff_goop() {
         let mut list = SimpleOpLog::new();
-        list.add_insert("a", 0, "a");
+        list.add_insert(Uuid::from_u128(0xA), 0, "a");
         list.goop(5);
-        list.add_insert("a", 1, "bb");
+        list.add_insert(Uuid::from_u128(0xA), 1, "bb");
 
         let mut result = JumpRopeBuf::new();
         let f1 = list.merge_raw(&mut result, &[], &[5]);
@@ -1021,19 +1022,19 @@ mod test {
     fn test_ff_merge() {
         let mut list = SimpleOpLog::new();
 
-        list.add_insert_at("a", &[], 0, "aaa");
-        list.add_insert_at("b", &[], 0, "bbb");
+        list.add_insert_at(Uuid::from_u128(0xA), &[], 0, "aaa");
+        list.add_insert_at(Uuid::from_u128(0xB), &[], 0, "bbb");
         assert_eq!("aaabbb", list.to_string());
 
-        list.add_insert_at("a", &[2, 5], 0, "ccc"); // 8
+        list.add_insert_at(Uuid::from_u128(0xA), &[2, 5], 0, "ccc"); // 8
         assert_eq!("cccaaabbb", list.to_string());
     }
 
     #[test]
     fn test_merge_inserts() {
         let mut list = SimpleOpLog::new();
-        list.add_insert_at("a", &[], 0, "aaa");
-        list.add_insert_at("b", &[], 0, "bbb");
+        list.add_insert_at(Uuid::from_u128(0xA), &[], 0, "aaa");
+        list.add_insert_at(Uuid::from_u128(0xB), &[], 0, "bbb");
 
         assert_eq!(list.to_string(), "aaabbb");
     }
@@ -1042,10 +1043,10 @@ mod test {
     fn test_merge_deletes_1() {
         let mut list = SimpleOpLog::new();
 
-        list.add_insert("a", 0, "aaa");
+        list.add_insert(Uuid::from_u128(0xA), 0, "aaa");
 
-        list.add_delete_at("a", &[2], 1..2); // &[3]
-        list.add_delete_at("b", &[2], 0..3); // &[6]
+        list.add_delete_at(Uuid::from_u128(0xA), &[2], 1..2); // &[3]
+        list.add_delete_at(Uuid::from_u128(0xB), &[2], 0..3); // &[6]
 
         // M2Tracker::apply_to_checkout(&mut list.checkout, &list.ops, (0..list.ops.len()).into());
         // list.checkout.merge_changes_m2(&list.ops, (3..list.ops.len()).into());
@@ -1057,9 +1058,9 @@ mod test {
     fn test_merge_deletes_2() {
         let mut list = SimpleOpLog::new();
 
-        let t = list.add_insert_at("a", &[], 0, "aaa");
-        list.add_delete_at("a", &[t], 1..2); // 3
-        list.add_delete_at("b", &[t], 0..3); // 6
+        let t = list.add_insert_at(Uuid::from_u128(0xA), &[], 0, "aaa");
+        list.add_delete_at(Uuid::from_u128(0xA), &[t], 1..2); // 3
+        list.add_delete_at(Uuid::from_u128(0xB), &[t], 0..3); // 6
         // dbg!(&list.ops);
 
         // list.checkout.merge_changes_m2(&list.ops, (0..list.ops.len()).into());
@@ -1099,8 +1100,8 @@ mod test {
     fn test_concurrent_insert() {
         let mut list = SimpleOpLog::new();
 
-        list.add_insert_at("a", &[], 0, "aaa");
-        list.add_insert_at("b", &[], 0, "bbb");
+        list.add_insert_at(Uuid::from_u128(0xA), &[], 0, "aaa");
+        list.add_insert_at(Uuid::from_u128(0xB), &[], 0, "bbb");
 
         let mut content = JumpRopeBuf::new();
         let mut t = M2Tracker::new();
@@ -1123,10 +1124,10 @@ mod test {
     fn test_concurrent_delete() {
         let mut list = SimpleOpLog::new();
 
-        list.add_insert("a", 0, "aaa");
+        list.add_insert(Uuid::from_u128(0xA), 0, "aaa");
 
-        list.add_delete_at("a", &[2], 1..2);
-        list.add_delete_at("b", &[2], 0..3);
+        list.add_delete_at(Uuid::from_u128(0xA), &[2], 1..2);
+        list.add_delete_at(Uuid::from_u128(0xB), &[2], 0..3);
 
         let mut content = JumpRopeBuf::new();
         let mut t = M2Tracker::new();
@@ -1149,8 +1150,8 @@ mod test {
     #[test]
     fn unroll_delete() {
         let mut list = SimpleOpLog::new();
-        list.add_insert("a", 0, "hi there"); // 0..8
-        list.add_delete("a", 2..5); // 8..11
+        list.add_insert(Uuid::from_u128(0xA), 0, "hi there"); // 0..8
+        list.add_delete(Uuid::from_u128(0xA), 2..5); // 8..11
 
         let mut t = M2Tracker::new();
 
@@ -1178,10 +1179,10 @@ mod test {
     #[test]
     fn backspace() {
         let mut list = SimpleOpLog::new();
-        list.add_insert("seph", 0, "abc"); // 2
-        list.add_delete("seph", 2..3); // 3 -> "ab_"
-        list.add_delete("seph", 1..2); // 4 -> "a__"
-        let t = list.add_delete("seph", 0..1); // 5 -> "___"
+        list.add_insert(Uuid::from_u128(0x5E98), 0, "abc"); // 2
+        list.add_delete(Uuid::from_u128(0x5E98), 2..3); // 3 -> "ab_"
+        list.add_delete(Uuid::from_u128(0x5E98), 1..2); // 4 -> "a__"
+        let t = list.add_delete(Uuid::from_u128(0x5E98), 0..1); // 5 -> "___"
         assert_eq!(t, 5);
 
         let mut t = M2Tracker::new();
@@ -1202,9 +1203,9 @@ mod test {
     fn ins_back() {
         let mut list = SimpleOpLog::new();
 
-        list.add_insert("seph", 0, "c");
-        list.add_insert("seph", 0, "b");
-        list.add_insert("seph", 0, "a");
+        list.add_insert(Uuid::from_u128(0x5E98), 0, "c");
+        list.add_insert(Uuid::from_u128(0x5E98), 0, "b");
+        list.add_insert(Uuid::from_u128(0x5E98), 0, "a");
 
         assert_eq!(list.to_string(), "abc");
     }

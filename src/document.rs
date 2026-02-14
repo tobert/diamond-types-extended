@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 use std::ops::Range;
+use uuid::Uuid;
 
 use crate::value::{CrdtId, MaterializedValue, PrimitiveValue, Value, checkout_to_materialized};
 use crate::{AgentId, CRDTKind, Frontier, OpLog, ROOT_CRDT_ID, LV, SerializedOpsOwned};
@@ -43,10 +44,10 @@ use crate::muts::{MapMut, SetMut, TextMut};
 /// where operations are applied to the log immediately.
 ///
 /// ```
-/// use diamond_types_extended::Document;
+/// use diamond_types_extended::{Document, Uuid};
 ///
 /// let mut doc = Document::new();
-/// let alice = doc.get_or_create_agent("alice");
+/// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 ///
 /// doc.transact(alice, |tx| {
 ///     tx.root().set("key", "value");
@@ -58,10 +59,10 @@ use crate::muts::{MapMut, SetMut, TextMut};
 /// # Example
 ///
 /// ```
-/// use diamond_types_extended::Document;
+/// use diamond_types_extended::{Document, Uuid};
 ///
 /// let mut doc = Document::new();
-/// let alice = doc.get_or_create_agent("alice");
+/// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 ///
 /// // Mutations happen in transactions
 /// doc.transact(alice, |tx| {
@@ -90,12 +91,12 @@ impl Document {
         }
     }
 
-    /// Get or create an agent ID by name.
+    /// Create or retrieve an agent ID from a UUID.
     ///
     /// Agents represent participants in collaborative editing.
-    /// Each agent should have a unique name per editing session.
-    pub fn get_or_create_agent(&mut self, name: &str) -> AgentId {
-        self.oplog.cg.get_or_create_agent_id(name)
+    /// Each agent should have a unique UUID per editing session.
+    pub fn create_agent(&mut self, id: Uuid) -> AgentId {
+        self.oplog.cg.get_or_create_agent_id(id)
     }
 
     /// Get the current version of the document.
@@ -192,10 +193,10 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc.transact(alice, |tx| {
     ///     tx.root().set("count", 42);
@@ -231,11 +232,11 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use diamond_types_extended::{Document, Frontier};
+    /// use diamond_types_extended::{Document, Frontier, Uuid};
     ///
     /// let mut doc_a = Document::new();
     /// let mut doc_b = Document::new();
-    /// let alice = doc_a.get_or_create_agent("alice");
+    /// let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// // Alice makes changes
     /// doc_a.transact(alice, |tx| {
@@ -291,10 +292,10 @@ impl Document {
     /// # Example
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc.transact(alice, |tx| {
     ///     tx.root().set("key", "value");
@@ -319,10 +320,10 @@ impl Document {
     /// Empty path reads from the root map.
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc.transact(alice, |tx| {
     ///     tx.root().set("name", "Alice");
@@ -362,10 +363,10 @@ impl Document {
     /// Get text content at a path (path points to the Text CRDT).
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc.transact(alice, |tx| {
     ///     let id = tx.root().create_text("content");
@@ -398,11 +399,11 @@ impl Document {
     /// directly, saving the `.into()` call at every use site.
     ///
     /// ```
-    /// use diamond_types_extended::{Document, Frontier};
+    /// use diamond_types_extended::{Document, Frontier, Uuid};
     ///
     /// let mut doc_a = Document::new();
     /// let mut doc_b = Document::new();
-    /// let alice = doc_a.get_or_create_agent("alice");
+    /// let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// doc_a.transact(alice, |tx| { tx.root().set("key", "value"); });
     ///
@@ -441,10 +442,10 @@ impl Document {
     /// multiple operations in Rust, prefer `transact()`.
     ///
     /// ```
-    /// use diamond_types_extended::Document;
+    /// use diamond_types_extended::{Document, Uuid};
     ///
     /// let mut doc = Document::new();
-    /// let alice = doc.get_or_create_agent("alice");
+    /// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
     ///
     /// let mut w = doc.writer(alice);
     /// w.root_set("name", "Alice");
@@ -488,10 +489,10 @@ impl Document {
 /// # Example
 ///
 /// ```
-/// use diamond_types_extended::Document;
+/// use diamond_types_extended::{Document, Uuid};
 ///
 /// let mut doc = Document::new();
-/// let alice = doc.get_or_create_agent("alice");
+/// let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 ///
 /// {
 ///     let mut w = doc.writer(alice);
@@ -825,6 +826,7 @@ fn materialized_map_to_json(map: BTreeMap<String, MaterializedValue>) -> serde_j
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn test_document_new() {
@@ -835,15 +837,15 @@ mod tests {
     #[test]
     fn test_document_agent() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
-        let alice2 = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+        let alice2 = doc.create_agent(Uuid::from_u128(0xA11CE));
         assert_eq!(alice, alice2);
     }
 
     #[test]
     fn test_document_transact() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("key", "value");
@@ -857,7 +859,7 @@ mod tests {
     #[test]
     fn test_document_nested() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().create_map("nested");
@@ -883,7 +885,7 @@ mod tests {
     #[test]
     fn test_get_from_root() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("name", "Alice");
@@ -900,7 +902,7 @@ mod tests {
     #[test]
     fn test_get_from_nested_path() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().create_map("meta");
@@ -916,7 +918,7 @@ mod tests {
     #[test]
     fn test_text_content() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let id = doc.transact(alice, |tx| tx.root().create_text("body"));
         doc.transact(alice, |tx| {
@@ -930,7 +932,7 @@ mod tests {
     #[test]
     fn test_map_keys() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("a", 1i64);
@@ -951,7 +953,7 @@ mod tests {
     fn test_ops_since_owned() {
         let mut doc_a = Document::new();
         let mut doc_b = Document::new();
-        let alice = doc_a.get_or_create_agent("alice");
+        let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
         doc_a.transact(alice, |tx| { tx.root().set("key", "value"); });
 
@@ -966,7 +968,7 @@ mod tests {
     #[test]
     fn test_writer_root_set() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -983,7 +985,7 @@ mod tests {
     #[test]
     fn test_writer_nested_map() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -999,7 +1001,7 @@ mod tests {
     #[test]
     fn test_writer_text() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -1021,7 +1023,7 @@ mod tests {
     #[test]
     fn test_writer_set() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -1049,7 +1051,7 @@ mod tests {
     #[test]
     fn test_writer_set_nil() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -1067,7 +1069,7 @@ mod tests {
     #[test]
     fn test_writer_returns_false_on_bad_path() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let mut w = doc.writer(alice);
 
@@ -1090,7 +1092,7 @@ mod tests {
     #[test]
     fn test_writer_create_returns_valid_ids() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let text_id;
         let set_id;
@@ -1116,7 +1118,7 @@ mod tests {
     #[test]
     fn test_writer_agent() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let w = doc.writer(alice);
         assert_eq!(w.agent(), alice);
@@ -1125,7 +1127,7 @@ mod tests {
     #[test]
     fn test_writer_create_register() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         {
             let mut w = doc.writer(alice);
@@ -1144,7 +1146,7 @@ mod tests {
     #[test]
     fn test_to_json() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("name", "Alice");
@@ -1167,7 +1169,7 @@ mod tests {
     #[test]
     fn test_writer_immediate_usage_of_created_path() {
         let mut doc = Document::new();
-        let agent = doc.get_or_create_agent("test");
+        let agent = doc.create_agent(Uuid::from_u128(0x7E57));
         let mut w = doc.writer(agent);
 
         w.root_create_map("a");
@@ -1189,7 +1191,7 @@ mod tests {
     #[test]
     fn test_writer_path_type_mismatches() {
         let mut doc = Document::new();
-        let agent = doc.get_or_create_agent("test");
+        let agent = doc.create_agent(Uuid::from_u128(0x7E57));
         let mut w = doc.writer(agent);
 
         w.root_create_text("my_text");
@@ -1217,7 +1219,7 @@ mod tests {
     #[test]
     fn test_writer_overwrite_crdt_with_primitive() {
         let mut doc = Document::new();
-        let agent = doc.get_or_create_agent("test");
+        let agent = doc.create_agent(Uuid::from_u128(0x7E57));
         let mut w = doc.writer(agent);
 
         // Create a map at "config", write into it
@@ -1243,7 +1245,7 @@ mod tests {
     #[test]
     fn test_writer_write_to_nil_parent_path() {
         let mut doc = Document::new();
-        let agent = doc.get_or_create_agent("test");
+        let agent = doc.create_agent(Uuid::from_u128(0x7E57));
         let mut w = doc.writer(agent);
 
         // Setup: root -> a -> b
@@ -1265,7 +1267,7 @@ mod tests {
     #[test]
     fn test_json_all_crdt_types() {
         let mut doc = Document::new();
-        let agent = doc.get_or_create_agent("test");
+        let agent = doc.create_agent(Uuid::from_u128(0x7E57));
 
         {
             let mut w = doc.writer(agent);

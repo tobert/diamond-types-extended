@@ -515,6 +515,7 @@ impl CGStorage {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     
     
 
@@ -527,7 +528,7 @@ mod test {
         let (mut cg, mut cgs) = CGStorage::open("test.cg").unwrap();
         // dbg!(&cgs, &cg);
 
-        let seph = cg.get_or_create_agent_id("seph");
+        let seph = cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         cg.assign_local_op_with_parents(&[], seph, 10);
         cg.assign_local_op_with_parents(&[5], seph, 15);
         cg.assign_local_op_with_parents(&[15], seph, 20);

@@ -34,7 +34,7 @@ pub(crate) fn random_str(len: usize, rng: &mut SmallRng, use_unicode: bool) -> S
     str
 }
 
-pub(crate) fn make_random_change(oplog: &mut SimpleOpLog, branch: &SimpleBranch, mut rope: Option<&mut JumpRope>, agent: &str, rng: &mut SmallRng) -> LV {
+pub(crate) fn make_random_change(oplog: &mut SimpleOpLog, branch: &SimpleBranch, mut rope: Option<&mut JumpRope>, agent: uuid::Uuid, rng: &mut SmallRng) -> LV {
     let doc_len = branch.len();
     let insert_weight = if doc_len < 100 { 0.55 } else { 0.45 };
 

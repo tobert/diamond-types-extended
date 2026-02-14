@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use smartstring::alias::String as SmartString;
+use uuid::Uuid;
 use crate::rle::HasLength;
 use crate::causalgraph::agent_span::{AgentSpan, AgentVersion};
 use crate::{AgentId, DTRange, LV};
@@ -9,8 +9,8 @@ pub mod remote_ids;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ClientData {
-    /// Used to map from client's name / hash to its numerical ID.
-    pub(crate) name: SmartString,
+    /// UUID identifying this agent.
+    pub(crate) name: Uuid,
 
     /// This is a packed RLE in-order list of all operations from this client.
     ///
@@ -36,8 +36,7 @@ pub struct AgentAssignment {
     ///
     /// List is packed.
     pub(crate) client_with_lv: RleVec<KVPair<AgentSpan>>,
-    // pub(crate) client_with_lv: RlePackedVec<>
-    
+
     /// For each client, we store some data (above). This is indexed by AgentId.
     ///
     /// This is used to map external CRDT locations -> Order numbers.
@@ -79,38 +78,31 @@ impl ClientData {
     }
 }
 
-pub const MAX_AGENT_NAME_LENGTH: usize = 50;
-
 impl AgentAssignment {
     pub fn new() -> Self { Self::default() }
 
-    pub fn get_agent_id(&self, name: &str) -> Option<AgentId> {
+    pub fn get_agent_id(&self, uuid: Uuid) -> Option<AgentId> {
         self.client_data.iter()
-            .position(|client_data| client_data.name == name)
+            .position(|client_data| client_data.name == uuid)
             .map(|id| id as AgentId)
     }
 
-    pub fn get_or_create_agent_id(&mut self, name: &str) -> AgentId {
-        // TODO: -> Result or something so this can be handled.
-        if name == "ROOT" { panic!("Agent ID 'ROOT' is reserved"); }
-
-        assert!(name.len() < MAX_AGENT_NAME_LENGTH, "Agent name cannot exceed {MAX_AGENT_NAME_LENGTH} UTF8 bytes");
-
-        if let Some(id) = self.get_agent_id(name) {
+    pub fn get_or_create_agent_id(&mut self, uuid: Uuid) -> AgentId {
+        if let Some(id) = self.get_agent_id(uuid) {
             id
         } else {
             // Create a new id.
             self.client_data.push(ClientData {
-                name: SmartString::from(name),
+                name: uuid,
                 lv_for_seq: RleVec::new()
             });
             (self.client_data.len() - 1) as AgentId
         }
     }
 
-    /// Returns the agent name (as a &str) for a given agent_id. This is fast (O(1)).
-    pub fn get_agent_name(&self, agent: AgentId) -> &str {
-        self.client_data[agent as usize].name.as_str()
+    /// Returns the UUID for a given agent_id. This is fast (O(1)).
+    pub fn get_agent_uuid(&self, agent: AgentId) -> Uuid {
+        self.client_data[agent as usize].name
     }
 
     /// Iterates over the local version mappings for the specified agent. The iterator returns

@@ -1,14 +1,14 @@
 //! Integration tests for replication/sync
 
-use diamond_types_extended::{Document, Frontier};
+use diamond_types_extended::{Document, Frontier, Uuid};
 
 #[test]
 fn test_two_peer_sync_map() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice makes changes
     doc_a.transact(alice, |tx| {
@@ -46,7 +46,7 @@ fn test_two_peer_sync_text() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // Alice creates text
     let _text_id = doc_a.transact(alice, |tx| {
@@ -73,8 +73,8 @@ fn test_two_peer_sync_set() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates set
     let _set_id = doc_a.transact(alice, |tx| {
@@ -119,7 +119,7 @@ fn test_incremental_sync() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // Initial sync
     doc_a.transact(alice, |tx| {
@@ -151,8 +151,8 @@ fn test_convergence_after_concurrent_edits() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Both write to the same key (concurrent)
     doc_a.transact(alice, |tx| {

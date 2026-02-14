@@ -49,7 +49,7 @@ use clap::Parser;
 use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
 
-use diamond_types_extended::{Document, Frontier, PrimitiveValue, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, PrimitiveValue, SerializedOpsOwned, Uuid};
 
 // Universe states
 const STATE_RUNNING: u8 = 0;
@@ -265,13 +265,13 @@ const NASTY_STRINGS: &[&str] = &[
     "\u{0645}\u{0631}\u{062d}\u{0628}\u{0627}", // RTL (Arabic)
 ];
 
-fn create_peer_state(agent_names: &[String], my_idx: usize) -> PeerState {
+fn create_peer_state(agent_uuids: &[Uuid], my_idx: usize) -> PeerState {
     let mut doc = Document::new();
     // Pre-register all agents so IDs are somewhat stable
-    for name in agent_names {
-        doc.get_or_create_agent(name);
+    for uuid in agent_uuids {
+        doc.create_agent(*uuid);
     }
-    let agent = doc.get_or_create_agent(&agent_names[my_idx]);
+    let agent = doc.create_agent(agent_uuids[my_idx]);
     PeerState {
         doc,
         agent_idx: my_idx,
@@ -285,7 +285,7 @@ fn do_random_op(
     peer: &mut PeerState,
     rng: &mut SmallRng,
     op_mix: &OpMix,
-    agent_names: &[String],
+    agent_uuids: &[Uuid],
     thread_id: usize,
     stats: &Stats,
 ) {
@@ -358,15 +358,15 @@ fn do_random_op(
 
             let mut new_doc = Document::new();
             // Pre-register all agents again
-            for name in agent_names {
-                new_doc.get_or_create_agent(name);
+            for uuid in agent_uuids {
+                new_doc.create_agent(*uuid);
             }
 
             // Restore state
             new_doc.merge_ops(full_ops).expect("Crash recovery failed: unable to merge own ops");
 
             peer.doc = new_doc;
-            peer.agent = peer.doc.get_or_create_agent(&agent_names[peer.agent_idx]);
+            peer.agent = peer.doc.create_agent(agent_uuids[peer.agent_idx]);
             // Reset broadcast cursor to current version
             peer.last_broadcast_version = peer.doc.version().clone();
 
@@ -444,8 +444,8 @@ fn main() {
     let start_time = Instant::now();
     let stop_flag = Arc::new(AtomicBool::new(false));
 
-    let agent_names: Arc<Vec<String>> = Arc::new(
-        (0..args.threads).map(|i| format!("peer_{}", i)).collect()
+    let agent_uuids: Arc<Vec<Uuid>> = Arc::new(
+        (0..args.threads).map(|i| Uuid::from_u128(0xBE2C8 + i as u128)).collect()
     );
 
     // Create universes
@@ -454,7 +454,7 @@ fn main() {
             .map(|_| Universe {
                 state: AtomicU8::new(STATE_RUNNING),
                 peers: (0..args.threads)
-                    .map(|i| RwLock::new(create_peer_state(&agent_names, i)))
+                    .map(|i| RwLock::new(create_peer_state(&agent_uuids, i)))
                     .collect(),
                 op_count: AtomicU64::new(0),
             })
@@ -512,7 +512,7 @@ fn main() {
             let universes_clone = Arc::clone(&universes);
             let stats_clone = Arc::clone(&stats);
             let stop_flag_clone = Arc::clone(&stop_flag);
-            let agent_names_clone = Arc::clone(&agent_names);
+            let agent_uuids_clone = Arc::clone(&agent_uuids);
             let compact_threshold = args.compact_at;
 
             thread::spawn(move || {
@@ -571,7 +571,7 @@ fn main() {
 
                     // Reset all peer states
                     for (i, lock) in locks.iter_mut().enumerate() {
-                        **lock = create_peer_state(&agent_names_clone, i);
+                        **lock = create_peer_state(&agent_uuids_clone, i);
                     }
 
                     universe.op_count.store(0, Ordering::Relaxed);
@@ -590,7 +590,7 @@ fn main() {
             let stats = Arc::clone(&stats);
             let stop_flag = Arc::clone(&stop_flag);
             let universes = Arc::clone(&universes);
-            let agent_names_clone = Arc::clone(&agent_names);
+            let agent_uuids_clone = Arc::clone(&agent_uuids);
             let my_senders: Vec<SyncSender<OpsMessage>> = senders[thread_id].clone();
             let my_receiver = receivers.remove(0);
 
@@ -650,7 +650,7 @@ fn main() {
                     }
 
                     // Do op
-                    do_random_op(&mut peer, &mut rng, &op_mix, &agent_names_clone, thread_id, &stats);
+                    do_random_op(&mut peer, &mut rng, &op_mix, &agent_uuids_clone, thread_id, &stats);
                     stats.total_ops.fetch_add(1, Ordering::Relaxed);
                     universe.op_count.fetch_add(1, Ordering::Relaxed);
                     ops_since_broadcast += 1;

@@ -3,12 +3,12 @@
 //! `#[serde(untagged)]` requires self-describing formats (JSON, YAML).
 //! After removing it, compact binary formats like postcard work.
 
-use diamond_types_extended::{Document, Frontier, MaterializedValue, SerializedOpsOwned};
+use diamond_types_extended::{Document, Frontier, MaterializedValue, SerializedOpsOwned, Uuid};
 
 #[test]
 fn postcard_round_trip() {
     let mut doc_a = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     doc_a.transact(alice, |tx| {
         let mut root = tx.root();
@@ -58,7 +58,7 @@ fn postcard_round_trip() {
 fn postcard_incremental_sync() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // First batch
     doc_a.transact(alice, |tx| {
@@ -94,7 +94,7 @@ fn postcard_incremental_sync() {
 #[test]
 fn postcard_is_compact() {
     let mut doc = Document::new();
-    let agent = doc.get_or_create_agent("a");
+    let agent = doc.create_agent(Uuid::from_u128(0xA));
 
     doc.transact(agent, |tx| {
         tx.root().set("x", 1);
@@ -116,7 +116,7 @@ fn postcard_is_compact() {
 #[test]
 fn to_json_produces_natural_output() {
     let mut doc = Document::new();
-    let agent = doc.get_or_create_agent("a");
+    let agent = doc.create_agent(Uuid::from_u128(0xA));
 
     doc.transact(agent, |tx| {
         let mut root = tx.root();

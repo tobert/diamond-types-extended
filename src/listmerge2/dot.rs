@@ -116,6 +116,7 @@ impl CausalGraph {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use std::fs;
     use crate::list::ListOpLog;
     use super::DotColor::*;
@@ -124,8 +125,8 @@ mod test {
     // #[ignore]
     // fn test1() {
     //     let mut ops = ListOpLog::new();
-    //     ops.get_or_create_agent_id("seph");
-    //     ops.get_or_create_agent_id("mike");
+    //     ops.get_or_create_agent_id(Uuid::from_u128(0x5E98));
+    //     ops.get_or_create_agent_id(Uuid::from_u128(0x341CE));
     //     ops.add_insert_at(0, &[], 0, "a");
     //     ops.add_insert_at(1, &[], 0, "b");
     //     ops.add_delete_at(0, &[0, 1], 0..2);
@@ -137,8 +138,8 @@ mod test {
     #[ignore]
     fn test2() {
         let mut ops = ListOpLog::new();
-        ops.get_or_create_agent_id("seph");
-        ops.get_or_create_agent_id("mike");
+        ops.get_or_create_agent_id(Uuid::from_u128(0x5E98));
+        ops.get_or_create_agent_id(Uuid::from_u128(0x341CE));
         let _a = ops.add_insert_at(0, &[], 0, "aaa");
         let b = ops.add_insert_at(1, &[], 0, "b");
         ops.add_delete_at(0, &[1, b], 0..2);
