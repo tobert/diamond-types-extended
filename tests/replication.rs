@@ -231,3 +231,111 @@ fn test_concurrent_incremental_sync() {
         doc_b.root().get("from_bob").unwrap()
     );
 }
+
+/// ops_since_remote should handle a frontier containing an agent UUID
+/// that the local document has never seen — it simply ignores it and
+/// returns all local ops.
+#[test]
+fn test_ops_since_remote_unknown_agent() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+
+    doc.transact(alice, |tx| {
+        tx.root().set("key", "value");
+    });
+
+    // Build a frontier referencing an agent this doc has never seen
+    let unknown_frontier = smallvec![RemoteVersion(Uuid::from_u128(0xDEAD), 5)];
+    let ops = doc.ops_since_remote(&unknown_frontier);
+
+    // Should return all ops (unknown agent is ignored → falls back to root)
+    assert!(!ops.is_empty());
+
+    // Verify a fresh doc can merge them and get the data
+    let mut doc_b = Document::new();
+    doc_b.merge_ops(ops.into_owned()).unwrap();
+    assert_eq!(doc_b.root().get("key").unwrap().as_str(), Some("value"));
+}
+
+/// ops_since_remote should handle a frontier where the remote peer is
+/// ahead of the local doc for a known agent (SeqInFuture). Instead of
+/// resending that agent's entire history, it should use the local doc's
+/// latest version for that agent.
+#[test]
+fn test_ops_since_remote_future_seq() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc.create_agent(Uuid::from_u128(0xB0B));
+
+    // Alice makes some changes
+    doc.transact(alice, |tx| {
+        tx.root().set("alice_key", "alice_val");
+    });
+
+    // Bob makes some changes
+    doc.transact(bob, |tx| {
+        tx.root().set("bob_key", "bob_val");
+    });
+
+    // Simulate a remote frontier where Alice is at seq 999 (far ahead)
+    // but Bob is correctly at his actual version
+    let bob_rv = doc.remote_version().iter()
+        .find(|rv| rv.0 == Uuid::from_u128(0xB0B))
+        .copied()
+        .unwrap();
+
+    let future_frontier = smallvec![
+        RemoteVersion(Uuid::from_u128(0xA11CE), 999),
+        bob_rv,
+    ];
+
+    let ops = doc.ops_since_remote(&future_frontier);
+
+    // The peer already has everything from Alice (they're ahead) and
+    // everything from Bob (matching frontier). So ops should be empty.
+    assert!(ops.is_empty());
+}
+
+/// When the remote peer is ahead on one agent but behind on another,
+/// ops_since_remote should only send the ops the peer is missing.
+#[test]
+fn test_ops_since_remote_mixed_ahead_behind() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc.create_agent(Uuid::from_u128(0xB0B));
+
+    doc.transact(alice, |tx| {
+        tx.root().set("a1", "first");
+    });
+
+    let _mid_version = doc.remote_version();
+
+    doc.transact(bob, |tx| {
+        tx.root().set("b1", "second");
+    });
+
+    // Remote peer has Alice at seq 999 (ahead) but doesn't know about Bob
+    let frontier = smallvec![
+        RemoteVersion(Uuid::from_u128(0xA11CE), 999),
+    ];
+
+    let ops = doc.ops_since_remote(&frontier).into_owned();
+    assert!(!ops.is_empty());
+
+    // Merge into a fresh doc that already has Alice's data
+    let mut doc_b = Document::new();
+    let ops_initial = doc.ops_since(&Frontier::root()).into_owned();
+    doc_b.merge_ops(ops_initial).unwrap();
+
+    // Bob's data should be present
+    assert!(doc_b.root().contains_key("b1"));
+}

@@ -69,9 +69,8 @@ use smartstring::alias::String as SmartString;
 use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
-use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
 pub use uuid::Uuid;
-pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteFrontier, RemoteFrontierOwned};
+pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteFrontier, RemoteFrontierOwned};
 use crate::causalgraph::agent_span::AgentVersion;
 pub(crate) use crate::causalgraph::CausalGraph;
 pub(crate) use crate::dtrange::DTRange;
