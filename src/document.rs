@@ -108,6 +108,56 @@ impl Document {
         &self.oplog.cg.version
     }
 
+    /// Get the document's current version as a portable `RemoteFrontier`.
+    ///
+    /// Unlike [`version()`](Self::version), which returns local-only version numbers,
+    /// the remote frontier uses `(Uuid, seq)` pairs that are safe to send to other
+    /// peers for incremental sync.
+    ///
+    /// ```
+    /// use diamond_types_extended::{Document, Uuid};
+    ///
+    /// let mut doc = Document::new();
+    /// let agent = doc.create_agent(Uuid::from_u128(0x1));
+    /// doc.transact(agent, |tx| { tx.root().set("k", "v"); });
+    ///
+    /// let remote_v = doc.remote_version();
+    /// assert_eq!(remote_v.len(), 1);
+    /// ```
+    pub fn remote_version(&self) -> crate::RemoteFrontier {
+        self.oplog.cg.agent_assignment.local_to_remote_frontier(self.version().as_ref())
+    }
+
+    /// Get operations since a remote frontier received from another peer.
+    ///
+    /// This is the safe alternative to [`ops_since()`](Self::ops_since) for
+    /// cross-document sync. It resolves the remote frontier to local versions,
+    /// gracefully handling unknown agents by returning more operations rather
+    /// than panicking.
+    ///
+    /// ```
+    /// use diamond_types_extended::{Document, Uuid, Frontier};
+    ///
+    /// let mut doc_a = Document::new();
+    /// let mut doc_b = Document::new();
+    /// let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    ///
+    /// doc_a.transact(alice, |tx| { tx.root().set("k", "v"); });
+    ///
+    /// // Full sync using remote frontier
+    /// let ops = doc_a.ops_since_remote(&doc_b.remote_version()).into_owned();
+    /// doc_b.merge_ops(ops).unwrap();
+    /// assert!(doc_b.root().contains_key("k"));
+    /// ```
+    pub fn ops_since_remote(&self, remote_frontier: &crate::RemoteFrontier) -> crate::SerializedOps<'_> {
+        let local_frontier: Frontier = remote_frontier.iter()
+            .filter_map(|rv| {
+                self.oplog.cg.agent_assignment.try_remote_to_local_version(*rv).ok()
+            })
+            .collect();
+        self.oplog.ops_since(local_frontier.as_ref())
+    }
+
     /// Check if the document is empty (no operations).
     pub fn is_empty(&self) -> bool {
         self.oplog.cg.len() == 0

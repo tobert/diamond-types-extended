@@ -174,3 +174,60 @@ fn test_convergence_after_concurrent_edits() {
     let val_b = doc_b.root().get("key").unwrap();
     assert_eq!(val_a, val_b);
 }
+
+/// This is the scenario that caused the original concurrent merge panic:
+/// two peers share initial state, make concurrent edits, then try to do
+/// incremental sync using each other's version. With local LVs this panics
+/// because the indices don't match across documents. With RemoteFrontier
+/// (portable UUID+seq pairs) it works correctly.
+#[test]
+fn test_concurrent_incremental_sync() {
+    let mut doc_a = Document::new();
+    let mut doc_b = Document::new();
+
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+
+    // Shared initial state
+    doc_a.transact(alice, |tx| {
+        tx.root().set("initial", "shared");
+    });
+    let ops = doc_a.ops_since(&Frontier::root()).into_owned();
+    doc_b.merge_ops(ops).unwrap();
+
+    // Both make concurrent edits
+    doc_a.transact(alice, |tx| {
+        tx.root().set("from_alice", "concurrent A");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("from_bob", "concurrent B");
+    });
+
+    // Exchange portable remote versions and sync incrementally
+    let rv_a = doc_a.remote_version();
+    let rv_b = doc_b.remote_version();
+
+    let ops_for_b = doc_a.ops_since_remote(&rv_b).into_owned();
+    let ops_for_a = doc_b.ops_since_remote(&rv_a).into_owned();
+
+    doc_b.merge_ops(ops_for_b).unwrap();
+    doc_a.merge_ops(ops_for_a).unwrap();
+
+    // Both should have all keys
+    assert!(doc_a.root().contains_key("initial"));
+    assert!(doc_a.root().contains_key("from_alice"));
+    assert!(doc_a.root().contains_key("from_bob"));
+    assert!(doc_b.root().contains_key("initial"));
+    assert!(doc_b.root().contains_key("from_alice"));
+    assert!(doc_b.root().contains_key("from_bob"));
+
+    // Values should converge
+    assert_eq!(
+        doc_a.root().get("from_alice").unwrap(),
+        doc_b.root().get("from_alice").unwrap()
+    );
+    assert_eq!(
+        doc_a.root().get("from_bob").unwrap(),
+        doc_b.root().get("from_bob").unwrap()
+    );
+}
