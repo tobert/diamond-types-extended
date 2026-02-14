@@ -676,7 +676,7 @@ impl OpLog {
                         // Use the correct agent and sequence for this chunk
                         let rv = RemoteVersion(
                             self.cg.agent_assignment.get_agent_uuid(agent_span.agent),
-                            agent_span.seq_range.start
+                            agent_span.seq_range.start as u64
                         );
                         text_ops.push((crdt_name, rv, op_out));
                     }
@@ -759,8 +759,8 @@ impl OpLog {
                 None => continue, // Agent not found, skip
             };
 
-            let seq_start = rv.1;
-            let seq_end = rv.1 + op_metrics.len();
+            let seq_start = rv.1 as usize;
+            let seq_end = seq_start + op_metrics.len();
 
             // Collect chunks to apply (to avoid borrow checker issues)
             // Each chunk is (lv_range, content_start, content_len) where content_start/len
@@ -878,8 +878,8 @@ impl OpLog {
                 None => continue, // Agent not found, skip
             };
 
-            let seq_start = rv.1;
-            let seq_end = rv.1 + op_metrics.len();
+            let seq_start = rv.1 as usize;
+            let seq_end = seq_start + op_metrics.len();
 
             // Collect chunks to apply (to avoid borrow checker issues)
             // Each chunk is (lv_range, content_start, content_len) where content_start/len
