@@ -150,9 +150,27 @@ impl Document {
     /// assert!(doc_b.root().contains_key("k"));
     /// ```
     pub fn ops_since_remote(&self, remote_frontier: &crate::RemoteFrontier) -> crate::SerializedOps<'_> {
+        use crate::causalgraph::agent_assignment::remote_ids::VersionConversionError;
+
         let local_frontier: Frontier = remote_frontier.iter()
             .filter_map(|rv| {
-                self.oplog.cg.agent_assignment.try_remote_to_local_version(*rv).ok()
+                match self.oplog.cg.agent_assignment.try_remote_to_local_version(*rv) {
+                    Ok(lv) => Some(lv),
+                    Err(VersionConversionError::SeqInFuture) => {
+                        // Remote peer is ahead of us for this agent — use our latest
+                        // version so we don't resend history we know they already have.
+                        let agent = self.oplog.cg.agent_assignment.get_agent_id(rv.0)?;
+                        let next_seq = self.oplog.cg.agent_assignment.client_data[agent as usize].get_next_seq();
+                        if next_seq > 0 {
+                            self.oplog.cg.agent_assignment.try_remote_to_local_version(
+                                crate::RemoteVersion(rv.0, (next_seq - 1) as u64)
+                            ).ok()
+                        } else {
+                            None
+                        }
+                    }
+                    Err(VersionConversionError::UnknownAgent) => None,
+                }
             })
             .collect();
         self.oplog.ops_since(local_frontier.as_ref())
