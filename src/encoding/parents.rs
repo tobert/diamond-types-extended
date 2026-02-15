@@ -118,7 +118,8 @@ pub(crate) fn read_parents_raw(reader: &mut BufParser, persist: bool, aa: &mut A
             // Local parents (parents inside this chunk of data) are stored using their local (file)
             // time offset.
             let file_time = next_time - diff;
-            let (entry, offset) = read_map.txn_map.find_with_offset(file_time).unwrap();
+            let (entry, offset) = read_map.txn_map.find_with_offset(file_time)
+                .ok_or(ParseError::GenericInvalidData)?;
             entry.1.at_offset(offset)
         } else {
             let agent = match n {

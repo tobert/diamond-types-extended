@@ -869,6 +869,7 @@ fn materialized_to_json(mv: MaterializedValue) -> serde_json::Value {
         MaterializedValue::Nil => serde_json::Value::Null,
         MaterializedValue::Bool(b) => serde_json::Value::Bool(b),
         MaterializedValue::Int(n) => serde_json::Value::Number(n.into()),
+        MaterializedValue::Float(n) => serde_json::json!(n.into_inner()),
         MaterializedValue::Str(s) | MaterializedValue::Text(s) => serde_json::Value::String(s),
         MaterializedValue::Map(m) => materialized_map_to_json(m),
         MaterializedValue::Set(items) => serde_json::Value::Array(
@@ -876,6 +877,7 @@ fn materialized_to_json(mv: MaterializedValue) -> serde_json::Value {
                 PrimitiveValue::Nil => serde_json::Value::Null,
                 PrimitiveValue::Bool(b) => serde_json::Value::Bool(b),
                 PrimitiveValue::Int(n) => serde_json::Value::Number(n.into()),
+                PrimitiveValue::Float(n) => serde_json::json!(n.into_inner()),
                 PrimitiveValue::Str(s) => serde_json::Value::String(s),
             }).collect(),
         ),

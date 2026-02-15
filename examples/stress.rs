@@ -431,11 +431,12 @@ fn do_random_op(
 }
 
 fn random_primitive(rng: &mut SmallRng) -> PrimitiveValue {
-    match rng.random_range(0..5) {
+    match rng.random_range(0..6) {
         0 => PrimitiveValue::Nil,
         1 => PrimitiveValue::Bool(rng.random()),
         2 => PrimitiveValue::Int(rng.random()),
-        3 => PrimitiveValue::Str(format!("v{}", rng.random::<u32>())),
+        3 => (rng.random::<f64>() * 1000.0 - 500.0).into(),
+        4 => PrimitiveValue::Str(format!("v{}", rng.random::<u32>())),
         _ => {
             let s = NASTY_STRINGS[rng.random_range(0..NASTY_STRINGS.len())];
             PrimitiveValue::Str(s.to_string())

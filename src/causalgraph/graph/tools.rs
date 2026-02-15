@@ -22,15 +22,15 @@ use crate::frontier::{debug_assert_sorted, FrontierRef};
 pub(crate) enum DiffFlag { OnlyA, OnlyB, Shared }
 
 impl Graph {
-    fn shadow_of(&self, time: LV) -> LV {
-        self.entries.find(time).unwrap().shadow
+    fn shadow_of(&self, time: LV) -> Option<LV> {
+        Some(self.entries.find(time)?.shadow)
     }
 
     /// Does the frontier `[a]` contain `[b]` as a direct ancestor according to its shadow?
     fn txn_shadow_contains(&self, a: LV, b: LV) -> bool {
 
         // wrapping_add(1) so we compute ROOT correctly.
-        a == b || (a > b && self.shadow_of(a) <= b)
+        a == b || (a > b && self.shadow_of(a).is_some_and(|s| s <= b))
         // let a_1 = a.wrapping_add(1);
         // let b_1 = b.wrapping_add(1);
         // a_1 == b_1 || (a_1 > b_1 && self.shadow_of(a).wrapping_add(1) <= b_1)
@@ -52,7 +52,7 @@ impl Graph {
     pub(crate) fn is_direct_descendant_coarse(&self, a: LV, b: LV) -> bool {
         // This is a bit more strict than we technically need, but its fast for short circuit
         // evaluation.
-        a == b || (a > b && self.entries.find(a).unwrap().contains(b))
+        a == b || (a > b && self.entries.find(a).is_some_and(|e| e.contains(b)))
         // a == b
         //     || (b == ROOT_TIME && self.txn_shadow_contains(a, ROOT_TIME))
         //     || (a != ROOT_TIME && a > b && self.0.find(a).unwrap().contains(b))
@@ -119,9 +119,11 @@ impl Graph {
         // a shadow less than target. Usually the root document. And in that case this codepath
         // avoids the allocation from BinaryHeap.
         for &o in frontier {
-            if o > target {
-                let txn = self.entries.find(o).unwrap();
-                if txn.shadow_contains(target) { return true; }
+            if o > target
+                && let Some(txn) = self.entries.find(o)
+                && txn.shadow_contains(target)
+            {
+                return true;
             }
         }
 
@@ -149,7 +151,7 @@ impl Graph {
             // dbg!((order, &queue));
 
             // TODO: Skip these calls to find() using parent_index.
-            let entry = self.entries.find_packed(order);
+            let Some(entry) = self.entries.find(order) else { continue; };
             if entry.shadow_contains(target) { return true; }
 
             while let Some(&next_time) = queue.peek() {

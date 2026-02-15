@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use ordered_float::NotNan;
 use crate::{CRDTKind, CreateValue, DTValue, LV, Primitive, RegisterValue};
 use smartstring::alias::String as SmartString;
 
@@ -44,6 +45,8 @@ pub enum Value {
     Bool(bool),
     /// 64-bit signed integer.
     Int(i64),
+    /// 64-bit floating point (never NaN).
+    Float(NotNan<f64>),
     /// String value (UTF-8).
     Str(String),
     /// Reference to a nested Map CRDT.
@@ -64,7 +67,7 @@ impl Value {
 
     /// Check if this value is a primitive (not a CRDT reference).
     pub fn is_primitive(&self) -> bool {
-        matches!(self, Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Str(_))
+        matches!(self, Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_))
     }
 
     /// Check if this value is a CRDT reference.
@@ -84,6 +87,15 @@ impl Value {
     pub fn as_int(&self) -> Option<i64> {
         match self {
             Value::Int(n) => Some(*n),
+            _ => None,
+        }
+    }
+
+    /// Get as f64 if this is a float.
+    /// Get as f64 if this is a float.
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Value::Float(n) => Some(n.into_inner()),
             _ => None,
         }
     }
@@ -111,6 +123,7 @@ impl fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Int(n) => write!(f, "{}", n),
+            Value::Float(n) => write!(f, "{}", n),
             Value::Str(s) => write!(f, "{:?}", s),
             Value::Map(id) => write!(f, "Map({:?})", id),
             Value::Text(id) => write!(f, "Text({:?})", id),
@@ -140,6 +153,8 @@ pub enum PrimitiveValue {
     Bool(bool),
     /// 64-bit signed integer.
     Int(i64),
+    /// 64-bit floating point (never NaN).
+    Float(NotNan<f64>),
     /// String value (UTF-8).
     Str(String),
 }
@@ -154,6 +169,11 @@ impl From<i64> for PrimitiveValue {
 
 impl From<i32> for PrimitiveValue {
     fn from(n: i32) -> Self { PrimitiveValue::Int(n as i64) }
+}
+
+/// Panics if the value is NaN.
+impl From<f64> for PrimitiveValue {
+    fn from(n: f64) -> Self { PrimitiveValue::Float(NotNan::new(n).expect("NaN is not a valid CRDT value")) }
 }
 
 impl From<String> for PrimitiveValue {
@@ -174,6 +194,7 @@ impl From<PrimitiveValue> for Primitive {
             PrimitiveValue::Nil => Primitive::Nil,
             PrimitiveValue::Bool(b) => Primitive::Bool(b),
             PrimitiveValue::Int(n) => Primitive::I64(n),
+            PrimitiveValue::Float(n) => Primitive::F64(n),
             PrimitiveValue::Str(s) => Primitive::Str(s.into()),
         }
     }
@@ -191,6 +212,8 @@ impl From<PrimitiveValue> for Value {
             PrimitiveValue::Nil => Value::Nil,
             PrimitiveValue::Bool(b) => Value::Bool(b),
             PrimitiveValue::Int(n) => Value::Int(n),
+            PrimitiveValue::Float(n) => Value::Float(n),
+
             PrimitiveValue::Str(s) => Value::Str(s),
         }
     }
@@ -212,6 +235,8 @@ pub enum MaterializedValue {
     Bool(bool),
     /// 64-bit signed integer.
     Int(i64),
+    /// 64-bit floating point (never NaN).
+    Float(NotNan<f64>),
     /// String value (UTF-8).
     Str(String),
     /// Text CRDT content.
@@ -229,6 +254,7 @@ impl From<DTValue> for MaterializedValue {
                 Primitive::Nil | Primitive::InvalidUninitialized => MaterializedValue::Nil,
                 Primitive::Bool(b) => MaterializedValue::Bool(b),
                 Primitive::I64(n) => MaterializedValue::Int(n),
+                Primitive::F64(n) => MaterializedValue::Float(n),
                 Primitive::Str(s) => MaterializedValue::Str(s.to_string()),
             },
             DTValue::Register(inner) => (*inner).into(),
@@ -244,6 +270,7 @@ impl From<DTValue> for MaterializedValue {
                         Primitive::Nil | Primitive::InvalidUninitialized => PrimitiveValue::Nil,
                         Primitive::Bool(b) => PrimitiveValue::Bool(b),
                         Primitive::I64(n) => PrimitiveValue::Int(n),
+                        Primitive::F64(n) => PrimitiveValue::Float(n),
                         Primitive::Str(s) => PrimitiveValue::Str(s.to_string()),
                     })
                     .collect()
@@ -274,6 +301,11 @@ impl From<i32> for Value {
     fn from(n: i32) -> Self { Value::Int(n as i64) }
 }
 
+/// Panics if the value is NaN.
+impl From<f64> for Value {
+    fn from(n: f64) -> Self { Value::Float(NotNan::new(n).expect("NaN is not a valid CRDT value")) }
+}
+
 impl From<String> for Value {
     fn from(s: String) -> Self { Value::Str(s) }
 }
@@ -294,6 +326,7 @@ impl From<Primitive> for Value {
             Primitive::Nil => Value::Nil,
             Primitive::Bool(b) => Value::Bool(b),
             Primitive::I64(n) => Value::Int(n),
+            Primitive::F64(n) => Value::Float(n),
             Primitive::Str(s) => Value::Str(s.to_string()),
             Primitive::InvalidUninitialized => Value::Nil,
         }
@@ -324,6 +357,7 @@ impl From<Value> for Primitive {
             Value::Nil => Primitive::Nil,
             Value::Bool(b) => Primitive::Bool(b),
             Value::Int(n) => Primitive::I64(n),
+            Value::Float(n) => Primitive::F64(n),
             Value::Str(s) => Primitive::Str(s.into()),
             _ => Primitive::Nil,
         }
@@ -336,6 +370,7 @@ impl From<Value> for CreateValue {
             Value::Nil => CreateValue::Primitive(Primitive::Nil),
             Value::Bool(b) => CreateValue::Primitive(Primitive::Bool(b)),
             Value::Int(n) => CreateValue::Primitive(Primitive::I64(n)),
+            Value::Float(n) => CreateValue::Primitive(Primitive::F64(n)),
             Value::Str(s) => CreateValue::Primitive(Primitive::Str(s.into())),
             Value::Map(_) => CreateValue::NewCRDT(CRDTKind::Map),
             Value::Text(_) => CreateValue::NewCRDT(CRDTKind::Text),

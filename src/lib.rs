@@ -70,6 +70,7 @@ use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
 pub use uuid::Uuid;
+pub use ordered_float::NotNan;
 pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteFrontier};
 use crate::causalgraph::agent_span::AgentVersion;
 pub(crate) use crate::causalgraph::CausalGraph;
@@ -164,7 +165,7 @@ pub(crate) enum Primitive {
     Nil,
     Bool(bool),
     I64(i64),
-    // F64(f64),
+    F64(NotNan<f64>),
     Str(SmartString),
 
     #[serde(skip)]
@@ -179,6 +180,7 @@ impl Debug for Primitive {
             Primitive::Bool(val) => val.fmt(f),
             // Primitive::I64(val) => f.debug_tuple("I64").field(val).finish(),
             Primitive::I64(val) => val.fmt(f),
+            Primitive::F64(val) => val.fmt(f),
             Primitive::Str(val) => val.fmt(f),
             Primitive::InvalidUninitialized => f.debug_tuple("InvalidUninitialized").finish()
         }
