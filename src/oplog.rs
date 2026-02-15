@@ -17,7 +17,7 @@ use crate::encoding::parseerror::ParseError;
 use crate::branch::btree_range_for_crdt;
 use crate::frontier::{is_sorted_iter_uniq, is_sorted_slice};
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
-use crate::list::operation::TextOperation;
+use crate::list::operation::{ListOpKind, TextOperation};
 use crate::rle::{KVPair, RleSpanHelpers};
 use crate::set::{StoredSetOp, SerializedSetOp};
 
@@ -652,11 +652,20 @@ impl OpLog {
                         let offset = span_lv - lv;
                         let len = agent_span.len();
 
-                        // Adjust the location for this chunk
+                        // Adjust the location for this chunk.
+                        //
+                        // For inserts (fwd=true): sequential positions, start += offset
+                        // For forward deletes (fwd=true, kind=Del): all at same position
+                        //   (each delete shifts content left, next char slides to same pos)
+                        // For backward deletes (fwd=false): positions decrease,
+                        //   chunk starts at end - (offset + len)
                         let mut loc = op.loc;
-                        if loc.fwd {
+                        if loc.fwd && op.kind == ListOpKind::Ins {
                             loc.span.start += offset;
+                        } else if !loc.fwd {
+                            loc.span.start = loc.span.end - (offset + len);
                         }
+                        // Forward deletes: loc.span.start stays unchanged
                         loc.span.end = loc.span.start + len;
 
                         // Get the content slice for this chunk

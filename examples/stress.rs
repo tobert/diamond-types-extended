@@ -782,6 +782,7 @@ fn main() {
             .map(|p| p.write().unwrap())
             .collect();
 
+        // Full-state pairwise sync: 2 rounds should suffice
         let n = locks.len();
         for _ in 0..2 {
             for i in 0..n {
@@ -793,12 +794,17 @@ fn main() {
                     let ops_i: SerializedOpsOwned = peer_i.doc.ops_since(&Frontier::root()).into();
                     let ops_j: SerializedOpsOwned = peer_j.doc.ops_since(&Frontier::root()).into();
 
-                    peer_j.doc.merge_ops(ops_i).ok();
-                    peer_i.doc.merge_ops(ops_j).ok();
+                    if let Err(e) = peer_j.doc.merge_ops(ops_i) {
+                        eprintln!("❌ Final sync: merge i→j failed (universe {universe_idx}, {i}→{j}): {e:?}");
+                    }
+                    if let Err(e) = peer_i.doc.merge_ops(ops_j) {
+                        eprintln!("❌ Final sync: merge j→i failed (universe {universe_idx}, {j}→{i}): {e:?}");
+                    }
                 }
             }
         }
 
+        // CRDTs converge on content, not internal state — only compare checkout()
         let first = locks[0].doc.checkout();
         for (i, lock) in locks.iter().enumerate().skip(1) {
             let checkout = lock.doc.checkout();
