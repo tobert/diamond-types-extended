@@ -263,6 +263,14 @@ impl CausalGraph {
     }
 
     pub fn diff_since_rev(&self, frontier: &[LV]) -> SmallVec<DTRange, 4> {
+        // If the frontier contains versions we don't know about (e.g. from a
+        // different peer that hasn't synced with us), we can't compute a
+        // meaningful diff. Fall back to returning everything.
+        let graph_len = self.len();
+        if frontier.iter().any(|&lv| lv >= graph_len) {
+            return self.diff_since_rev(&[]);
+        }
+
         let (only_a, only_b) = self.graph.diff_rev(frontier, self.version.as_ref());
         debug_assert!(only_a.is_empty());
         only_b

@@ -339,3 +339,42 @@ fn test_ops_since_remote_mixed_ahead_behind() {
     // Bob's data should be present
     assert!(doc_b.root().contains_key("b1"));
 }
+
+/// ops_since should not panic when given a frontier containing versions
+/// unknown to the document. This happens when peer A has versions that
+/// peer B doesn't know about, and B's frontier is passed to A.ops_since().
+#[test]
+fn ops_since_with_unknown_frontier_versions() {
+    let mut doc_a = Document::new();
+    let mut doc_b = Document::new();
+
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+
+    // Alice writes several ops to advance her frontier
+    doc_a.transact(alice, |tx| {
+        tx.root().set("a1", "v1");
+    });
+    doc_a.transact(alice, |tx| {
+        tx.root().set("a2", "v2");
+    });
+
+    // Bob writes several ops independently (no sync) — different LV space
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b1", "v1");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b2", "v2");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b3", "v3");
+    });
+
+    // Bob's frontier is [2] (3 ops, 0-indexed). Alice only has LVs 0..2.
+    // Bob's frontier LV 2 exists in Alice's graph but refers to a different op.
+    // To get a truly unknown LV, we need Bob's frontier to exceed Alice's graph length.
+    // Alice has 2 ops (LVs 0,1), Bob has 3 ops (LVs 0,1,2). Bob's LV 2 > Alice's max LV 1.
+    let bob_frontier = doc_b.version().clone();
+    // This should not panic — it should handle the unknown LV gracefully.
+    let _ops = doc_a.ops_since(&bob_frontier);
+}
