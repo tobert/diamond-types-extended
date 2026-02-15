@@ -599,7 +599,7 @@ fn main() {
                         .map(|p| p.write().unwrap())
                         .collect();
 
-                    // Full mesh sync using remote frontiers
+                    // Full mesh sync — use full state exchange for reliable convergence
                     let n = locks.len();
                     for _ in 0..2 {
                         for i in 0..n {
@@ -608,11 +608,8 @@ fn main() {
                                 let peer_i = &mut left[i];
                                 let peer_j = &mut right[0];
 
-                                let rv_i = peer_i.doc.remote_version();
-                                let rv_j = peer_j.doc.remote_version();
-
-                                let ops_i: SerializedOpsOwned = peer_i.doc.ops_since_remote(&rv_j).into();
-                                let ops_j: SerializedOpsOwned = peer_j.doc.ops_since_remote(&rv_i).into();
+                                let ops_i: SerializedOpsOwned = peer_i.doc.ops_since(&Frontier::root()).into();
+                                let ops_j: SerializedOpsOwned = peer_j.doc.ops_since(&Frontier::root()).into();
 
                                 peer_j.doc.merge_ops(ops_i).ok();
                                 peer_i.doc.merge_ops(ops_j).ok();
@@ -793,11 +790,8 @@ fn main() {
                     let peer_i = &mut left[i];
                     let peer_j = &mut right[0];
 
-                    let rv_i = peer_i.doc.remote_version();
-                    let rv_j = peer_j.doc.remote_version();
-
-                    let ops_i: SerializedOpsOwned = peer_i.doc.ops_since_remote(&rv_j).into();
-                    let ops_j: SerializedOpsOwned = peer_j.doc.ops_since_remote(&rv_i).into();
+                    let ops_i: SerializedOpsOwned = peer_i.doc.ops_since(&Frontier::root()).into();
+                    let ops_j: SerializedOpsOwned = peer_j.doc.ops_since(&Frontier::root()).into();
 
                     peer_j.doc.merge_ops(ops_i).ok();
                     peer_i.doc.merge_ops(ops_j).ok();

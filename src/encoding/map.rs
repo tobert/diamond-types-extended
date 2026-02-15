@@ -63,6 +63,12 @@ pub struct WriteMap {
 
     /// Map from local oplog versions -> file versions. Each entry is KVPair(local start, file range).
     pub txn_map: RleVec<KVPair<DTRange>>,
+
+    /// Total number of file-position slots written so far. This is the next available
+    /// file position, and must be tracked explicitly because `txn_map` is sorted by
+    /// local LV (not by file output order), so `last_entry()` may not reflect the
+    /// most recently written output position.
+    pub output_len: usize,
 }
 
 impl WriteMap {
@@ -70,8 +76,8 @@ impl WriteMap {
         Self {
             agent_map: vec![],
             next_mapped_agent: 0,
-            // output: BumpVec::new_in(bump)
-            txn_map: Default::default()
+            txn_map: Default::default(),
+            output_len: 0,
         }
     }
 
@@ -79,8 +85,8 @@ impl WriteMap {
         Self {
             agent_map: vec![(None, 0); client_data.len()],
             next_mapped_agent: 0,
-            // output: BumpVec::new_in(bump)
-            txn_map: Default::default()
+            txn_map: Default::default(),
+            output_len: 0,
         }
     }
 
@@ -120,6 +126,10 @@ impl WriteMap {
         // order! This will only be relevant if write() is called in a different order from the
         // CG, which happens when we optimize the order.
         self.txn_map.insert(KVPair(local_range.start, output_range));
+        let end = output_range.end();
+        if end > self.output_len {
+            self.output_len = end;
+        }
     }
 
     pub(crate) fn map_mut(&mut self, client_data: &[ClientData], agent: AgentId, persist: bool) -> Result<AgentId, Uuid> {
