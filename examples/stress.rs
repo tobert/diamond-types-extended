@@ -49,7 +49,7 @@ use clap::Parser;
 use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
 
-use diamond_types_extended::{Document, Frontier, PrimitiveValue, RemoteFrontierOwned, SerializedOpsOwned, Uuid};
+use diamond_types_extended::{Document, Frontier, PrimitiveValue, RemoteFrontier, SerializedOpsOwned, Uuid};
 
 // Universe states
 const STATE_RUNNING: u8 = 0;
@@ -165,7 +165,7 @@ struct PeerState {
     doc: Document,
     agent_idx: usize, // Index into global agent_names
     agent: u32,       // Local agent ID in the current document
-    last_broadcast_remote: RemoteFrontierOwned,
+    last_broadcast_remote: RemoteFrontier,
     set_created: bool,
     text_created: bool,
 }

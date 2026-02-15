@@ -2441,7 +2441,7 @@ mod tests {
     /// multiple peers with remote frontier-based incremental sync.
     #[test]
     fn stress_pattern_remote_frontier_sync() {
-        use crate::{Document, PrimitiveValue, RemoteFrontierOwned};
+        use crate::{Document, PrimitiveValue, RemoteFrontier};
 
         let uuids: Vec<Uuid> = (0..4).map(|i| Uuid::from_u128(0xBEEF + i as u128)).collect();
 
@@ -2460,7 +2460,7 @@ mod tests {
         }).collect();
 
         // Track last broadcast using remote frontiers (like stress test)
-        let mut last_broadcast: Vec<RemoteFrontierOwned> = vec![Default::default(); 4];
+        let mut last_broadcast: Vec<RemoteFrontier> = vec![Default::default(); 4];
 
         for round in 0..20i64 {
             // Each peer does ops
@@ -2498,7 +2498,7 @@ mod tests {
     /// which exercise a different code path in the serializer.
     #[test]
     fn stress_pattern_text_remote_frontier() {
-        use crate::{Document, PrimitiveValue, RemoteFrontierOwned};
+        use crate::{Document, PrimitiveValue, RemoteFrontier};
 
         let uuids: Vec<Uuid> = (0..3).map(|i| Uuid::from_u128(0xCAFE + i as u128)).collect();
 
@@ -2517,7 +2517,7 @@ mod tests {
         let ops: SerializedOpsOwned = docs[0].ops_since(&Frontier::root()).into();
         for doc in &mut docs[1..] { doc.merge_ops(ops.clone()).unwrap(); }
 
-        let mut last_broadcast: Vec<RemoteFrontierOwned> = (0..3)
+        let mut last_broadcast: Vec<RemoteFrontier> = (0..3)
             .map(|i| docs[i].remote_version())
             .collect();
 

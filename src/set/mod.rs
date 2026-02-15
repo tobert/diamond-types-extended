@@ -205,18 +205,18 @@ pub enum StoredSetOp<T> {
     Remove { value: T, tags: Vec<AddTag> },
 }
 
-use crate::causalgraph::agent_assignment::remote_ids::RemoteVersionOwned;
+use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
 
 /// Serialized set operation for cross-peer replication.
 ///
-/// Uses RemoteVersionOwned for tags so they can be converted between peers.
+/// Uses RemoteVersion for tags so they can be converted between peers.
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub enum SerializedSetOp<T> {
     /// Add an element. The tag is implicit (same as the operation's version).
     Add { value: T },
     /// Remove specific tags for a value. Tags are RemoteVersions.
-    Remove { value: T, tags: Vec<RemoteVersionOwned> },
+    Remove { value: T, tags: Vec<RemoteVersion> },
 }
 
 /// Information about a set stored in the OpLog.

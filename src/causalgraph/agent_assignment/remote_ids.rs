@@ -18,9 +18,6 @@ use crate::causalgraph::agent_span::{AgentVersion, AgentSpan};
 #[derive(Serialize, Deserialize)]
 pub struct RemoteVersion(pub Uuid, pub u64);
 
-/// Alias for backwards compatibility — RemoteVersion is already owned (Copy).
-pub type RemoteVersionOwned = RemoteVersion;
-
 impl From<(Uuid, u64)> for RemoteVersion {
     fn from(r: (Uuid, u64)) -> Self {
         Self(r.0, r.1)
@@ -57,9 +54,6 @@ impl From<RemoteSeqRange> for DTRange {
 #[derive(Serialize, Deserialize)]
 pub struct RemoteVersionSpan(pub Uuid, pub RemoteSeqRange);
 
-/// Alias for backwards compatibility.
-pub type RemoteVersionSpanOwned = RemoteVersionSpan;
-
 impl HasLength for RemoteVersionSpan {
     fn len(&self) -> usize {
         self.1.len() as usize
@@ -86,9 +80,6 @@ impl MergableSpan for RemoteVersionSpan {
 }
 
 pub type RemoteFrontier = SmallVec<RemoteVersion, 2>;
-
-/// Alias for backwards compatibility.
-pub type RemoteFrontierOwned = RemoteFrontier;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[derive(Serialize)]

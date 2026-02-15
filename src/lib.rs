@@ -70,7 +70,7 @@ use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
 pub use uuid::Uuid;
-pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteFrontier, RemoteFrontierOwned};
+pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteFrontier};
 use crate::causalgraph::agent_span::AgentVersion;
 pub(crate) use crate::causalgraph::CausalGraph;
 pub(crate) use crate::dtrange::DTRange;
