@@ -45,7 +45,10 @@ impl From<DTRange> for RemoteSeqRange {
 
 impl From<RemoteSeqRange> for DTRange {
     fn from(r: RemoteSeqRange) -> Self {
-        Self { start: r.start as usize, end: r.end as usize }
+        Self {
+            start: usize::try_from(r.start).expect("seq exceeds usize on this platform"),
+            end: usize::try_from(r.end).expect("seq exceeds usize on this platform"),
+        }
     }
 }
 
@@ -93,15 +96,18 @@ impl AgentAssignment {
         let agent = self.get_agent_id(rv.0)
             .ok_or(VersionConversionError::UnknownAgent)?;
 
+        let seq = usize::try_from(rv.1)
+            .map_err(|_| VersionConversionError::SeqInFuture)?;
         self.client_data[agent as usize]
-            .try_seq_to_lv(rv.1 as usize)
+            .try_seq_to_lv(seq)
             .ok_or(VersionConversionError::SeqInFuture)
     }
 
     /// This panics if the ID isn't known to the document.
     pub fn remote_to_local_version(&self, RemoteVersion(uuid, seq): RemoteVersion) -> LV {
         let agent = self.get_agent_id(uuid).unwrap();
-        self.client_data[agent as usize].seq_to_lv(seq as usize)
+        let seq = usize::try_from(seq).expect("seq exceeds usize on this platform");
+        self.client_data[agent as usize].seq_to_lv(seq)
     }
 
     pub(crate) fn agent_version_to_remote(&self, (agent, seq): AgentVersion) -> RemoteVersion {
@@ -120,11 +126,11 @@ impl AgentAssignment {
 
     pub(crate) fn remote_to_agent_version_unknown(&mut self, RemoteVersion(uuid, seq): RemoteVersion) -> AgentVersion {
         let agent = self.get_or_create_agent_id(uuid);
-        (agent, seq as usize)
+        (agent, usize::try_from(seq).expect("seq exceeds usize on this platform"))
     }
     pub(crate) fn remote_to_agent_version_known(&self, RemoteVersion(uuid, seq): RemoteVersion) -> AgentVersion {
         let agent = self.get_agent_id(uuid).unwrap();
-        (agent, seq as usize)
+        (agent, usize::try_from(seq).expect("seq exceeds usize on this platform"))
     }
 
     pub fn local_to_remote_version(&self, v: LV) -> RemoteVersion {

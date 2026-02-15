@@ -107,7 +107,7 @@ fn read_cg_aa(reader: &mut BufParser, persist: bool, aa: &mut AgentAssignment, a
     let (agent, last_seq, idx) = if !is_known {
         if mapped_agent != 0 { return Err(ParseError::GenericInvalidData); }
         let agent_uuid = reader.next_uuid()?;
-        let agent = aa.get_or_create_agent_id(agent_uuid);
+        let agent = aa.get_or_create_agent_id_inner(agent_uuid);
         let idx = agent_map.len();
         if persist {
             agent_map.push((agent, 0));

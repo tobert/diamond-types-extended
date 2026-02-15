@@ -88,10 +88,16 @@ impl AgentAssignment {
     }
 
     pub fn get_or_create_agent_id(&mut self, uuid: Uuid) -> AgentId {
+        assert_ne!(uuid, Uuid::nil(), "Uuid::nil() is reserved as an internal sentinel and cannot be used as an agent UUID");
+        self.get_or_create_agent_id_inner(uuid)
+    }
+
+    /// Internal version that skips the nil check — used by decoding paths
+    /// where we need to accept whatever UUID comes off the wire.
+    pub(crate) fn get_or_create_agent_id_inner(&mut self, uuid: Uuid) -> AgentId {
         if let Some(id) = self.get_agent_id(uuid) {
             id
         } else {
-            // Create a new id.
             self.client_data.push(ClientData {
                 name: uuid,
                 lv_for_seq: RleVec::new()

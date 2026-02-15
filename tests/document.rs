@@ -17,8 +17,8 @@ fn test_agent_management() {
     let alice2 = doc.create_agent(Uuid::from_u128(0xA11CE));
     let bob = doc.create_agent(Uuid::from_u128(0xB0B));
 
-    assert_eq!(alice, alice2); // Same name = same ID
-    assert_ne!(alice, bob);    // Different names = different IDs
+    assert_eq!(alice, alice2); // Same UUID = same ID
+    assert_ne!(alice, bob);    // Different UUIDs = different IDs
 }
 
 #[test]

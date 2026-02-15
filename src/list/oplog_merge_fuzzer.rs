@@ -11,7 +11,7 @@ fn oplog_merge_fuzz(seed: u64, n: usize, verbose: bool) {
 
     for i in 0..docs.len() {
         for a in 0..docs.len() {
-            docs[i].get_or_create_agent_id(Uuid::from_u128(a as u128));
+            docs[i].get_or_create_agent_id(Uuid::from_u128(a as u128 + 1));
         }
     }
 

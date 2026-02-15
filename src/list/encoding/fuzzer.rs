@@ -61,7 +61,7 @@ fn fuzz_encode_decode_multi(seed: u64, verbose: bool) {
         // for a in 0..3 {
         //     docs[i].get_or_create_agent_id(agent_name(a).as_str());
         // }
-        docs[i].get_or_create_agent_id(Uuid::from_u128(i as u128));
+        docs[i].get_or_create_agent_id(Uuid::from_u128(i as u128 + 1));
     }
 
     for _i in 0..50 {

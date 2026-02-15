@@ -131,7 +131,7 @@ pub(crate) fn read_parents_raw(reader: &mut BufParser, persist: bool, aa: &mut A
                 1 => {
                     // This is a foreign (unknown) item.
                     let agent_uuid = reader.next_uuid()?;
-                    let agent = aa.get_or_create_agent_id(agent_uuid);
+                    let agent = aa.get_or_create_agent_id_inner(agent_uuid);
                     if persist {
                         read_map.agent_map.push((agent, 0));
                     }

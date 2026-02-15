@@ -94,7 +94,7 @@ impl ListOpLog {
 
         // TODO: Construct this lazily.
         for c in other.cg.agent_assignment.client_data.iter() {
-            let self_agent = self.get_or_create_agent_id(c.name);
+            let self_agent = self.cg.agent_assignment.get_or_create_agent_id_inner(c.name);
             agent_map.push(self_agent);
         }
 
