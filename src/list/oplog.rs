@@ -1,4 +1,5 @@
 use std::ops::Range;
+use uuid::Uuid;
 use crate::rle::{HasLength, SplitableSpan};
 use crate::{AgentId, Frontier, LV};
 use crate::list::{ListBranch, ListOpLog};
@@ -44,16 +45,16 @@ impl ListOpLog {
         branch
     }
 
-    pub fn get_or_create_agent_id(&mut self, name: &str) -> AgentId {
-        self.cg.agent_assignment.get_or_create_agent_id(name)
+    pub fn get_or_create_agent_id(&mut self, uuid: Uuid) -> AgentId {
+        self.cg.agent_assignment.get_or_create_agent_id(uuid)
     }
 
-    pub(crate) fn get_agent_id(&self, name: &str) -> Option<AgentId> {
-        self.cg.agent_assignment.get_agent_id(name)
+    pub(crate) fn get_agent_id(&self, uuid: Uuid) -> Option<AgentId> {
+        self.cg.agent_assignment.get_agent_id(uuid)
     }
 
-    pub fn get_agent_name(&self, agent: AgentId) -> &str {
-        self.cg.agent_assignment.get_agent_name(agent)
+    pub fn get_agent_uuid(&self, agent: AgentId) -> Uuid {
+        self.cg.agent_assignment.get_agent_uuid(agent)
     }
 
     pub fn num_agents(&self) -> AgentId {
@@ -369,7 +370,7 @@ impl ListOpLog {
         self.cg.version.clone()
     }
 
-    pub fn remote_frontier(&self) -> RemoteFrontier<'_> {
+    pub fn remote_frontier(&self) -> RemoteFrontier {
         self.cg.agent_assignment.local_to_remote_frontier(self.cg.version.as_ref())
     }
 
@@ -384,7 +385,7 @@ impl ListOpLog {
             .map(|item| item.1)
     }
 
-    pub fn iter_remote_mappings(&self) -> impl Iterator<Item = RemoteVersionSpan<'_>> + '_ {
+    pub fn iter_remote_mappings(&self) -> impl Iterator<Item = RemoteVersionSpan> + '_ {
         self.cg.agent_assignment.client_with_lv
             .iter()
             .map(|item| self.cg.agent_assignment.agent_span_to_remote(item.1))
@@ -396,7 +397,7 @@ impl ListOpLog {
             .map(|item| item.1)
     }
 
-    pub fn iter_remote_mappings_range(&self, range: DTRange) -> impl Iterator<Item = RemoteVersionSpan<'_>> + '_ {
+    pub fn iter_remote_mappings_range(&self, range: DTRange) -> impl Iterator<Item = RemoteVersionSpan> + '_ {
         self.cg.agent_assignment.client_with_lv
             .iter_range(range)
             .map(|item| self.cg.agent_assignment.agent_span_to_remote(item.1))

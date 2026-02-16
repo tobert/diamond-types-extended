@@ -94,7 +94,7 @@ impl ListOpLog {
 
         // TODO: Construct this lazily.
         for c in other.cg.agent_assignment.client_data.iter() {
-            let self_agent = self.get_or_create_agent_id(c.name.as_str());
+            let self_agent = self.cg.agent_assignment.get_or_create_agent_id_inner(c.name);
             agent_map.push(self_agent);
         }
 
@@ -157,6 +157,7 @@ impl ListOpLog {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use crate::list::ListOpLog;
 
     fn merge_into_and_check(dest: &mut ListOpLog, src: &ListOpLog) {
@@ -188,13 +189,13 @@ mod test {
         assert_eq!(a, b);
         // merge_and_check(&mut a, &b);
 
-        a.get_or_create_agent_id("seph");
+        a.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         a.add_insert(0, 0, "hi");
         merge_into_and_check(&mut b, &a);
 
         // Ok now we'll append data to both oplogs
         a.add_insert(0, 0, "aaa");
-        b.get_or_create_agent_id("mike");
+        b.get_or_create_agent_id(Uuid::from_u128(0x341CE));
         b.add_delete_without_content(1, 0..2);
 
         merge_both_and_check(&mut a, &mut b);

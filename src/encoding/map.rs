@@ -1,4 +1,5 @@
 use crate::rle::HasLength;
+use uuid::Uuid;
 use crate::{AgentId, DTRange, KVPair, RleVec, LV, Frontier};
 use crate::causalgraph::agent_assignment::ClientData;
 use crate::causalgraph::graph::Graph;
@@ -62,6 +63,12 @@ pub struct WriteMap {
 
     /// Map from local oplog versions -> file versions. Each entry is KVPair(local start, file range).
     pub txn_map: RleVec<KVPair<DTRange>>,
+
+    /// Total number of file-position slots written so far. This is the next available
+    /// file position, and must be tracked explicitly because `txn_map` is sorted by
+    /// local LV (not by file output order), so `last_entry()` may not reflect the
+    /// most recently written output position.
+    pub output_len: usize,
 }
 
 impl WriteMap {
@@ -69,8 +76,8 @@ impl WriteMap {
         Self {
             agent_map: vec![],
             next_mapped_agent: 0,
-            // output: BumpVec::new_in(bump)
-            txn_map: Default::default()
+            txn_map: Default::default(),
+            output_len: 0,
         }
     }
 
@@ -78,8 +85,8 @@ impl WriteMap {
         Self {
             agent_map: vec![(None, 0); client_data.len()],
             next_mapped_agent: 0,
-            // output: BumpVec::new_in(bump)
-            txn_map: Default::default()
+            txn_map: Default::default(),
+            output_len: 0,
         }
     }
 
@@ -119,9 +126,13 @@ impl WriteMap {
         // order! This will only be relevant if write() is called in a different order from the
         // CG, which happens when we optimize the order.
         self.txn_map.insert(KVPair(local_range.start, output_range));
+        let end = output_range.end();
+        if end > self.output_len {
+            self.output_len = end;
+        }
     }
 
-    pub(crate) fn map_mut<'c>(&mut self, client_data: &'c [ClientData], agent: AgentId, persist: bool) -> Result<AgentId, &'c str> {
+    pub(crate) fn map_mut(&mut self, client_data: &[ClientData], agent: AgentId, persist: bool) -> Result<AgentId, Uuid> {
         // debug_assert_ne!(agent, ROOT_AGENT);
 
         let agent = agent as usize;
@@ -138,7 +149,7 @@ impl WriteMap {
                 self.next_mapped_agent += 1;
             }
 
-            client_data[agent].name.as_str()
+            client_data[agent].name
         })
     }
 
@@ -146,13 +157,13 @@ impl WriteMap {
     ///
     /// Same as map_no_root_mut except this doesn't take the persist: bool flag and only takes
     /// &self.
-    pub(crate) fn map<'c>(&self, client_data: &'c [ClientData], agent: AgentId) -> Result<AgentId, &'c str> {
+    pub(crate) fn map(&self, client_data: &[ClientData], agent: AgentId) -> Result<AgentId, Uuid> {
         // debug_assert_ne!(agent, ROOT_AGENT);
 
         let agent = agent as usize;
         self.agent_map.get(agent).and_then(|e| e.0).ok_or_else(|| {
-            // If its unknown, just return the agent's string name.
-            client_data[agent].name.as_str()
+            // If its unknown, just return the agent's UUID.
+            client_data[agent].name
         })
     }
 

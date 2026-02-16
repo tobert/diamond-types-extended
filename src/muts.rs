@@ -279,13 +279,13 @@ impl<'a> RegisterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    
+    use uuid::Uuid;
     use crate::Document;
 
     #[test]
     fn test_map_mut_set() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         doc.transact(alice, |tx| {
             tx.root().set("string", "hello");
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_map_mut_create_nested() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let text_id = doc.transact(alice, |tx| {
             tx.root().create_text("content")
@@ -322,7 +322,7 @@ mod tests {
     #[test]
     fn test_text_mut() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let text_id = doc.transact(alice, |tx| {
             tx.root().create_text("doc")
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn test_set_mut() {
         let mut doc = Document::new();
-        let alice = doc.get_or_create_agent("alice");
+        let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
         let set_id = doc.transact(alice, |tx| {
             tx.root().create_set("tags")

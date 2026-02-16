@@ -24,7 +24,7 @@
 //! ```ignore
 //! // Creating a document with nested structure
 //! let mut oplog = OpLog::new();
-//! let agent = oplog.cg.get_or_create_agent_id("alice");
+//! let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 //!
 //! // Create nested map at "user"
 //! let user_map = oplog.local_map_set(agent, ROOT_CRDT_ID, "user",
@@ -324,6 +324,7 @@ impl Default for LWWMap {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
     use crate::causalgraph::CausalGraph;
 
@@ -347,7 +348,7 @@ mod tests {
     #[test]
     fn map_info_basic() {
         let mut cg = CausalGraph::new();
-        let agent = cg.get_or_create_agent_id("alice");
+        let agent = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
         let lv = cg.assign_local_op(agent, 1).start;
 
         let mut map = MapInfo::new(0);
@@ -364,7 +365,7 @@ mod tests {
     #[test]
     fn lww_map_api() {
         let mut cg = CausalGraph::new();
-        let agent = cg.get_or_create_agent_id("bob");
+        let agent = cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
         let lv = cg.assign_local_op(agent, 1).start;
 
         let mut map = LWWMap::new(100);
@@ -379,8 +380,8 @@ mod tests {
     #[test]
     fn map_concurrent_key_writes() {
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
-        let bob = cg.get_or_create_agent_id("bob");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         let parents = cg.version.clone();
         let lv_a = cg.assign_local_op_with_parents(parents.as_ref(), alice, 1).start;
@@ -393,18 +394,18 @@ mod tests {
         // get_state should show conflict
         let state = map.get_state("key", &cg.agent_assignment).unwrap();
         assert!(state.has_conflicts());
-        assert_eq!(state.value, MapValue::str("bob")); // "bob" > "alice"
+        assert_eq!(state.value, MapValue::str("alice")); // 0xA11CE > 0xB0B
         assert_eq!(state.conflicts_with.len(), 1);
 
         // checkout should only show winner
         let snapshot = map.checkout(&cg.agent_assignment);
-        assert_eq!(snapshot.get("key"), Some(&MapValue::str("bob")));
+        assert_eq!(snapshot.get("key"), Some(&MapValue::str("alice")));
     }
 
     #[test]
     fn map_nested_crdt_creation() {
         let mut cg = CausalGraph::new();
-        let alice = cg.get_or_create_agent_id("alice");
+        let alice = cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
         let lv = cg.assign_local_op(alice, 1).start;
 
         let mut map = MapInfo::new(0);

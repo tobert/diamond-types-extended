@@ -41,7 +41,7 @@ impl ListBranch {
     pub fn local_frontier(&self) -> Frontier { self.version.clone() }
 
     /// Return the current version of the branch in remote form
-    pub fn remote_frontier<'a>(&self, oplog: &'a ListOpLog) -> RemoteFrontier<'a> {
+    pub fn remote_frontier(&self, oplog: &ListOpLog) -> RemoteFrontier {
         oplog.cg.agent_assignment.local_to_remote_frontier(self.version.as_ref())
     }
 
@@ -161,12 +161,13 @@ impl From<ListBranch> for String {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use super::*;
 
     #[test]
     fn branch_at_version() {
         let mut oplog = ListOpLog::new();
-        oplog.get_or_create_agent_id("seph");
+        oplog.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         let after_ins = oplog.add_insert(0, 0, "hi there");
         let after_del = oplog.add_delete_without_content(0, 2 .. 2 + " there".len());
 
@@ -181,7 +182,7 @@ mod test {
     fn branch_at_early_version_applies_cleanly() {
         // Regression.
         let mut oplog = ListOpLog::new();
-        oplog.get_or_create_agent_id("seph");
+        oplog.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let mut branch1 = oplog.checkout(&[]);
         branch1.insert(&mut oplog, 0, 0, "aaa");

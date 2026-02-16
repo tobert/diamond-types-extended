@@ -1,4 +1,5 @@
 use std::mem::size_of;
+use uuid::Uuid;
 use crate::encoding::parseerror::ParseError;
 use crate::encoding::varint::*;
 
@@ -110,6 +111,11 @@ impl<'a> BufParser<'a> {
     // pub(crate) fn chunks(self) -> ChunkReader<'a> {
     //     ChunkReader(self)
     // }
+
+    pub(crate) fn next_uuid(&mut self) -> Result<Uuid, ParseError> {
+        let bytes = self.next_n_bytes(16)?;
+        Ok(Uuid::from_bytes(bytes.try_into().unwrap()))
+    }
 
     // Note the result is attached to the lifetime 'a, not the lifetime of self.
     pub(crate) fn next_str(&mut self) -> Result<&'a str, ParseError> {

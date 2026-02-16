@@ -78,6 +78,7 @@ impl ListOpLog {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use crate::list::ListOpLog;
 
     #[test]
@@ -86,7 +87,7 @@ mod tests {
         // Should be an empty set
         assert_eq!(oplog.get_stochastic_version(10), &[]);
 
-        oplog.get_or_create_agent_id("seph");
+        oplog.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         oplog.add_insert(0, 0, "a");
         oplog.add_insert(0, 0, "a");
         oplog.add_insert(0, 0, "a");

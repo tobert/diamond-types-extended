@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use rand::prelude::*;
 use crate::list::{ListCRDT, ListOpLog};
 use crate::list::encoding::EncodeOptions;
@@ -8,9 +9,9 @@ use crate::list_fuzzer_tools::choose_2;
 // it back to make sure the result doesn't change.
 fn fuzz_encode_decode_once(seed: u64) {
     let mut doc = ListCRDT::new();
-    doc.get_or_create_agent_id("a"); // 0
-    doc.get_or_create_agent_id("b"); // 1
-    doc.get_or_create_agent_id("c"); // 2
+    doc.get_or_create_agent_id(Uuid::from_u128(0xA)); // 0
+    doc.get_or_create_agent_id(Uuid::from_u128(0xB)); // 1
+    doc.get_or_create_agent_id(Uuid::from_u128(0xC)); // 2
 
     let mut rng = SmallRng::seed_from_u64(seed);
 
@@ -60,7 +61,7 @@ fn fuzz_encode_decode_multi(seed: u64, verbose: bool) {
         // for a in 0..3 {
         //     docs[i].get_or_create_agent_id(agent_name(a).as_str());
         // }
-        docs[i].get_or_create_agent_id(agent_name(i).as_str());
+        docs[i].get_or_create_agent_id(Uuid::from_u128(i as u128 + 1));
     }
 
     for _i in 0..50 {

@@ -1,14 +1,14 @@
 //! Integration tests for conflict handling
 
-use diamond_types_extended::{Document, Frontier};
+use diamond_types_extended::{Document, Frontier, Uuid};
 
 #[test]
 fn test_lww_conflict_detection() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Concurrent writes to same key
     doc_a.transact(alice, |tx| {
@@ -44,7 +44,7 @@ fn test_lww_conflict_detection() {
 #[test]
 fn test_no_conflict_sequential_writes() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     doc.transact(alice, |tx| {
         tx.root().set("key", "first");
@@ -64,8 +64,8 @@ fn test_set_add_wins_semantics() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates set
     let _set_id = doc_a.transact(alice, |tx| {
@@ -117,8 +117,8 @@ fn test_nested_crdt_conflict() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Both create a map at the same key (concurrent)
     doc_a.transact(alice, |tx| {

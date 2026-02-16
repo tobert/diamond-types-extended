@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use std::ops::Range;
 use jumprope::JumpRopeBuf;
 use smartstring::SmartString;
@@ -28,42 +29,42 @@ impl SimpleOpLog {
     pub(crate) fn goop(&mut self, n: usize) -> LV {
         // Just going to use agent 0 here.
         if self.cg.agent_assignment.client_data.is_empty() {
-            self.cg.get_or_create_agent_id("goopy");
+            self.cg.get_or_create_agent_id(Uuid::from_u128(0x600B1));
         }
 
         self.cg.assign_local_op(0, n).last()
     }
 
-    pub(crate) fn add_operation(&mut self, agent_name: &str, op: TextOperation) -> LV  {
-        let agent = self.cg.get_or_create_agent_id(agent_name);
+    pub(crate) fn add_operation(&mut self, agent_uuid: Uuid, op: TextOperation) -> LV  {
+        let agent = self.cg.get_or_create_agent_id(agent_uuid);
         let len = op.len();
         let range = self.cg.assign_local_op(agent, len);
         self.info.local_push_op(op, range);
         range.last()
     }
 
-    pub(crate) fn add_operation_at(&mut self, agent_name: &str, parents: &[LV], op: TextOperation) -> LV  {
-        let agent = self.cg.get_or_create_agent_id(agent_name);
+    pub(crate) fn add_operation_at(&mut self, agent_uuid: Uuid, parents: &[LV], op: TextOperation) -> LV  {
+        let agent = self.cg.get_or_create_agent_id(agent_uuid);
         let len = op.len();
         let range = self.cg.assign_local_op_with_parents(parents, agent, len);
         self.info.remote_push_op(op, range, parents, &self.cg.graph);
         range.last()
     }
 
-    pub(crate) fn add_insert_at(&mut self, agent_name: &str, parents: &[LV], pos: usize, content: &str) -> LV {
-        self.add_operation_at(agent_name, parents, TextOperation::new_insert(pos, content))
+    pub(crate) fn add_insert_at(&mut self, agent_uuid: Uuid, parents: &[LV], pos: usize, content: &str) -> LV {
+        self.add_operation_at(agent_uuid, parents, TextOperation::new_insert(pos, content))
     }
 
-    pub(crate) fn add_insert(&mut self, agent_name: &str, pos: usize, content: &str) -> LV {
-        self.add_operation(agent_name, TextOperation::new_insert(pos, content))
+    pub(crate) fn add_insert(&mut self, agent_uuid: Uuid, pos: usize, content: &str) -> LV {
+        self.add_operation(agent_uuid, TextOperation::new_insert(pos, content))
     }
 
-    pub(crate) fn add_delete_at(&mut self, agent_name: &str, parents: &[LV], del_range: Range<usize>) -> LV {
-        self.add_operation_at(agent_name, parents, TextOperation::new_delete(del_range))
+    pub(crate) fn add_delete_at(&mut self, agent_uuid: Uuid, parents: &[LV], del_range: Range<usize>) -> LV {
+        self.add_operation_at(agent_uuid, parents, TextOperation::new_delete(del_range))
     }
 
-    pub(crate) fn add_delete(&mut self, agent_name: &str, del_range: Range<usize>) -> LV {
-        self.add_operation(agent_name, TextOperation::new_delete(del_range))
+    pub(crate) fn add_delete(&mut self, agent_uuid: Uuid, del_range: Range<usize>) -> LV {
+        self.add_operation(agent_uuid, TextOperation::new_delete(del_range))
     }
 
     pub(crate) fn to_string(&self) -> String {

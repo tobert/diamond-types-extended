@@ -3,6 +3,7 @@ use smallvec::smallvec;
 use std::cmp::Ordering;
 use jumprope::JumpRopeBuf;
 use smartstring::alias::String as SmartString;
+use uuid::Uuid;
 
 use serde::{Serialize, Serializer};
 
@@ -16,7 +17,7 @@ use crate::encoding::parseerror::ParseError;
 use crate::branch::btree_range_for_crdt;
 use crate::frontier::{is_sorted_iter_uniq, is_sorted_slice};
 use crate::list::op_metrics::{ListOperationCtx, ListOpMetrics};
-use crate::list::operation::TextOperation;
+use crate::list::operation::{ListOpKind, TextOperation};
 use crate::rle::{KVPair, RleSpanHelpers};
 use crate::set::{StoredSetOp, SerializedSetOp};
 
@@ -560,16 +561,16 @@ impl OpLog {
 }
 
 impl OpLog {
-    fn crdt_name_to_remote(&self, crdt: LVKey) -> RemoteVersion<'_> {
+    fn crdt_name_to_remote(&self, crdt: LVKey) -> RemoteVersion {
         if crdt == ROOT_CRDT_ID {
-            RemoteVersion("ROOT", 0)
+            RemoteVersion(Uuid::nil(), 0)
         } else {
             self.cg.agent_assignment.local_to_remote_version(crdt)
         }
     }
 
     fn remote_to_crdt_name(&self, crdt_rv: RemoteVersion) -> LVKey {
-        if crdt_rv.0 == "ROOT" { ROOT_CRDT_ID }
+        if crdt_rv.0.is_nil() { ROOT_CRDT_ID }
         else { self.cg.agent_assignment.remote_to_local_version(crdt_rv) }
     }
 
@@ -651,11 +652,20 @@ impl OpLog {
                         let offset = span_lv - lv;
                         let len = agent_span.len();
 
-                        // Adjust the location for this chunk
+                        // Adjust the location for this chunk.
+                        //
+                        // For inserts (fwd=true): sequential positions, start += offset
+                        // For forward deletes (fwd=true, kind=Del): all at same position
+                        //   (each delete shifts content left, next char slides to same pos)
+                        // For backward deletes (fwd=false): positions decrease,
+                        //   chunk starts at end - (offset + len)
                         let mut loc = op.loc;
-                        if loc.fwd {
+                        if loc.fwd && op.kind == ListOpKind::Ins {
                             loc.span.start += offset;
+                        } else if !loc.fwd {
+                            loc.span.start = loc.span.end - (offset + len);
                         }
+                        // Forward deletes: loc.span.start stays unchanged
                         loc.span.end = loc.span.start + len;
 
                         // Get the content slice for this chunk
@@ -674,8 +684,8 @@ impl OpLog {
 
                         // Use the correct agent and sequence for this chunk
                         let rv = RemoteVersion(
-                            self.cg.agent_assignment.get_agent_name(agent_span.agent),
-                            agent_span.seq_range.start
+                            self.cg.agent_assignment.get_agent_uuid(agent_span.agent),
+                            agent_span.seq_range.start as u64
                         );
                         text_ops.push((crdt_name, rv, op_out));
                     }
@@ -758,8 +768,8 @@ impl OpLog {
                 None => continue, // Agent not found, skip
             };
 
-            let seq_start = rv.1;
-            let seq_end = rv.1 + op_metrics.len();
+            let seq_start = rv.1 as usize;
+            let seq_end = seq_start + op_metrics.len();
 
             // Collect chunks to apply (to avoid borrow checker issues)
             // Each chunk is (lv_range, content_start, content_len) where content_start/len
@@ -831,7 +841,7 @@ impl OpLog {
                     SerializedSetOp::Remove { value, tags } => {
                         // Convert RemoteVersion tags back to local LVs
                         let local_tags: Vec<_> = tags.iter()
-                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(RemoteVersion::from(rv)))
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(*rv))
                             .collect();
                         self.remote_set_remove(crdt_id, lv, value, local_tags);
                     }
@@ -859,9 +869,9 @@ impl OpLog {
         if new_range.is_empty() { return Ok(new_range); }
 
         for (crdt_r_name, rv, key, val) in changes.map_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
             if new_range.contains(lv) {
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 self.remote_map_set(crdt_id, lv, &key, val);
             }
         }
@@ -871,14 +881,14 @@ impl OpLog {
             // We need to find which sequences are NEW (not already known).
             // A sequence is new if its LV falls within new_range.
 
-            let agent = self.cg.agent_assignment.get_agent_id(rv.0.as_str());
+            let agent = self.cg.agent_assignment.get_agent_id(rv.0);
             let agent = match agent {
                 Some(a) => a,
                 None => continue, // Agent not found, skip
             };
 
-            let seq_start = rv.1;
-            let seq_end = rv.1 + op_metrics.len();
+            let seq_start = rv.1 as usize;
+            let seq_end = seq_start + op_metrics.len();
 
             // Collect chunks to apply (to avoid borrow checker issues)
             // Each chunk is (lv_range, content_start, content_len) where content_start/len
@@ -931,23 +941,23 @@ impl OpLog {
                     chunk_op.truncate_ctx(content_len, &changes.text_context);
                 }
 
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 let op = chunk_op.to_operation(&changes.text_context);
                 self.remote_text_op(crdt_id, apply_lv_range, op);
             }
         }
 
         for (crdt_r_name, rv, set_op) in changes.set_ops {
-            let lv = self.cg.agent_assignment.remote_to_local_version((&rv).into());
+            let lv = self.cg.agent_assignment.remote_to_local_version(rv);
             if new_range.contains(lv) {
-                let crdt_id = self.remote_to_crdt_name((&crdt_r_name).into());
+                let crdt_id = self.remote_to_crdt_name(crdt_r_name);
                 match set_op {
                     SerializedSetOp::Add { value } => {
                         self.remote_set_add(crdt_id, lv, value, lv);
                     }
                     SerializedSetOp::Remove { value, tags } => {
                         let local_tags: Vec<_> = tags.iter()
-                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(rv.into()))
+                            .map(|rv| self.cg.agent_assignment.remote_to_local_version(*rv))
                             .collect();
                         self.remote_set_remove(crdt_id, lv, value, local_tags);
                     }
@@ -967,14 +977,15 @@ impl OpLog {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CRDTKind, CreateValue, OpLog, Primitive, ROOT_CRDT_ID};
+    use uuid::Uuid;
+    use crate::{CRDTKind, CreateValue, Frontier, OpLog, Primitive, ROOT_CRDT_ID, SerializedOpsOwned};
     use crate::list::operation::TextOperation;
 
     #[test]
     fn smoke() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(123)));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(321)));
 
@@ -986,7 +997,7 @@ mod tests {
     fn text() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         let text = oplog.local_map_set(seph, ROOT_CRDT_ID, "content", CreateValue::NewCRDT(CRDTKind::Text));
         oplog.local_text_op(seph, text, TextOperation::new_insert(0, "Oh hai!"));
         oplog.local_text_op(seph, text, TextOperation::new_delete(0..3));
@@ -1022,12 +1033,12 @@ mod tests {
         let mut oplog2 = OpLog::new();
 
 
-        let seph = oplog1.cg.get_or_create_agent_id("seph");
+        let seph = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         let text = oplog1.local_map_set(seph, ROOT_CRDT_ID, "content", CreateValue::NewCRDT(CRDTKind::Text));
         oplog1.local_text_op(seph, text, TextOperation::new_insert(0, "Oh hai!"));
 
 
-        let kaarina = oplog2.cg.get_or_create_agent_id("kaarina");
+        let kaarina = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xCAA212A));
         let title = oplog2.local_map_set(kaarina, ROOT_CRDT_ID, "title", CreateValue::NewCRDT(CRDTKind::Text));
         oplog2.local_text_op(kaarina, title, TextOperation::new_insert(0, "Better keep it clean"));
 
@@ -1054,7 +1065,7 @@ mod tests {
     fn checkout() {
         let mut oplog = OpLog::new();
 
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
         oplog.local_map_set(seph, ROOT_CRDT_ID, "hi", CreateValue::Primitive(Primitive::I64(123)));
         let map = oplog.local_map_set(seph, ROOT_CRDT_ID, "yo", CreateValue::NewCRDT(CRDTKind::Map));
         oplog.local_map_set(seph, map, "yo", CreateValue::Primitive(Primitive::Str("blah".into())));
@@ -1066,7 +1077,7 @@ mod tests {
     #[test]
     fn overwrite_local() {
         let mut oplog = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let child_obj = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Map));
         let text_item = oplog.local_map_set(seph, child_obj, "text_item", CreateValue::NewCRDT(CRDTKind::Text));
@@ -1083,7 +1094,7 @@ mod tests {
     #[test]
     fn overwrite_remote() {
         let mut oplog = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let child_obj = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Map));
         let text_item = oplog.local_map_set(seph, child_obj, "text_item", CreateValue::NewCRDT(CRDTKind::Text));
@@ -1102,7 +1113,7 @@ mod tests {
         // Regression.
         let mut oplog = OpLog::new();
         let mut oplog2 = OpLog::new();
-        let seph = oplog.cg.get_or_create_agent_id("seph");
+        let seph = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
 
         let text_item = oplog.local_map_set(seph, ROOT_CRDT_ID, "overwritten", CreateValue::NewCRDT(CRDTKind::Text));
         oplog.local_text_op(seph, text_item, TextOperation::new_insert(0, "a"));
@@ -1125,8 +1136,8 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Alice: creates nested structure
         let user = oplog1.local_map_set(alice, ROOT_CRDT_ID, "user",
@@ -1138,7 +1149,7 @@ mod tests {
         oplog1.local_text_op(alice, bio, TextOperation::new_insert(0, "Hello!"));
 
         // Bob: makes concurrent changes
-        oplog2.cg.get_or_create_agent_id("alice"); // Know about Alice
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE)); // Know about Alice
         let settings = oplog2.local_map_set(bob, ROOT_CRDT_ID, "settings",
             CreateValue::NewCRDT(CRDTKind::Map));
         oplog2.local_map_set(bob, settings, "theme",
@@ -1162,7 +1173,7 @@ mod tests {
     #[test]
     fn standalone_register_nested_in_map() {
         let mut oplog = OpLog::new();
-        let alice = oplog.cg.get_or_create_agent_id("alice");
+        let alice = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a register inside the root map
         let counter_reg = oplog.local_map_set(alice, ROOT_CRDT_ID, "counter",
@@ -1183,7 +1194,7 @@ mod tests {
     #[test]
     fn set_crdt_creation() {
         let mut oplog = OpLog::new();
-        let alice = oplog.cg.get_or_create_agent_id("alice");
+        let alice = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set inside the root map
         let tags_set = oplog.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1206,7 +1217,7 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set and add elements
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1238,7 +1249,7 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create a set, add elements, then remove some
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1273,8 +1284,8 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Alice creates a set
         let tags = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1343,12 +1354,12 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
         // Both know about each other
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Concurrent writes to same key
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "color",
@@ -1382,11 +1393,11 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
 
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Concurrent writes to different keys
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "name",
@@ -1412,10 +1423,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Round 1: concurrent writes
         oplog1.local_map_set(alice, ROOT_CRDT_ID, "x",
@@ -1449,10 +1460,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates set and adds element
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1486,10 +1497,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates set and adds element
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1521,15 +1532,15 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         // Everyone knows everyone
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // Alice creates set
@@ -1565,14 +1576,14 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // Alice creates set and adds element
@@ -1614,10 +1625,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Both create a nested map at "data"
         let map1 = oplog1.local_map_set(alice, ROOT_CRDT_ID, "data",
@@ -1644,10 +1655,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice creates a set
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "tags",
@@ -1686,14 +1697,14 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        let carol = oplog3.cg.get_or_create_agent_id("carol");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        let carol = oplog3.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
 
         for oplog in [&mut oplog1, &mut oplog2, &mut oplog3] {
-            oplog.cg.get_or_create_agent_id("alice");
-            oplog.cg.get_or_create_agent_id("bob");
-            oplog.cg.get_or_create_agent_id("carol");
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+            oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xCA201));
         }
 
         // All three write to "winner" concurrently
@@ -1721,10 +1732,10 @@ mod tests {
         let mut oplog1 = OpLog::new();
         let mut oplog2 = OpLog::new();
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Alice does many operations
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "numbers",
@@ -1763,10 +1774,10 @@ mod tests {
         let mut oplog2 = OpLog::new();
         let mut oplog3 = OpLog::new(); // Fresh peer joins late
 
-        let alice = oplog1.cg.get_or_create_agent_id("alice");
-        let bob = oplog2.cg.get_or_create_agent_id("bob");
-        oplog1.cg.get_or_create_agent_id("bob");
-        oplog2.cg.get_or_create_agent_id("alice");
+        let alice = oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
+        let bob = oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog1.cg.get_or_create_agent_id(Uuid::from_u128(0xB0B));
+        oplog2.cg.get_or_create_agent_id(Uuid::from_u128(0xA11CE));
 
         // Create structure
         let set_id = oplog1.local_map_set(alice, ROOT_CRDT_ID, "items",
@@ -1799,13 +1810,13 @@ mod tests {
 
     /// Create N oplogs with registered agents
     fn create_oplogs(n: usize) -> Vec<OpLog> {
-        let agent_names: Vec<String> = (0..n).map(|i| format!("agent_{}", i)).collect();
+        let agent_uuids: Vec<Uuid> = (0..n).map(|i| Uuid::from_u128(0xA6E270 + i as u128)).collect();
         let mut oplogs: Vec<OpLog> = (0..n).map(|_| OpLog::new()).collect();
 
         // Register all agents in all oplogs
         for oplog in &mut oplogs {
-            for name in &agent_names {
-                oplog.cg.get_or_create_agent_id(name);
+            for uuid in &agent_uuids {
+                oplog.cg.get_or_create_agent_id(*uuid);
             }
         }
         oplogs
@@ -1836,7 +1847,7 @@ mod tests {
 
         // Each writer writes to "counter"
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             oplog.local_map_set(agent, ROOT_CRDT_ID, "counter",
                 CreateValue::Primitive(Primitive::I64(i as i64)));
         }
@@ -1864,7 +1875,7 @@ mod tests {
 
         // Each writer does multiple writes before sync
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             for j in 0..OPS_PER_WRITER {
                 oplog.local_map_set(agent, ROOT_CRDT_ID, "value",
                     CreateValue::Primitive(Primitive::I64((i * 100 + j) as i64)));
@@ -1891,7 +1902,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // First writer creates the set
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let _set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "tags",
             CreateValue::NewCRDT(CRDTKind::Set));
 
@@ -1900,7 +1911,7 @@ mod tests {
 
         // Each writer adds their own tags
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["tags"]);
             for j in 0..5 {
                 oplog.local_set_add(agent, set_id,
@@ -1933,7 +1944,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // Create set and add initial elements
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let set_id = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "items",
             CreateValue::NewCRDT(CRDTKind::Set));
         for i in 0..10 {
@@ -1945,7 +1956,7 @@ mod tests {
 
         // Half add new elements, half try to remove existing ones
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["items"]);
 
             if i % 2 == 0 {
@@ -1982,7 +1993,7 @@ mod tests {
 
         // Each writer writes to their own key AND a shared key
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             // Own key
             oplog.local_map_set(agent, ROOT_CRDT_ID, &format!("writer_{}", i),
                 CreateValue::Primitive(Primitive::I64(i as i64)));
@@ -2016,7 +2027,7 @@ mod tests {
         let mut oplogs = create_oplogs(N);
 
         // Create shared set
-        let agent0 = oplogs[0].cg.get_or_create_agent_id("agent_0");
+        let agent0 = oplogs[0].cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270));
         let _ = oplogs[0].local_map_set(agent0, ROOT_CRDT_ID, "data",
             CreateValue::NewCRDT(CRDTKind::Set));
 
@@ -2031,7 +2042,7 @@ mod tests {
 
         // Everyone adds to the set
         for (i, oplog) in oplogs.iter_mut().enumerate() {
-            let agent = oplog.cg.get_or_create_agent_id(&format!("agent_{}", i));
+            let agent = oplog.cg.get_or_create_agent_id(Uuid::from_u128(0xA6E270 + i as u128));
             let (_, set_id) = oplog.crdt_at_path(&["data"]);
             oplog.local_set_add(agent, set_id, Primitive::I64(i as i64));
         }
@@ -2058,6 +2069,493 @@ mod tests {
         let first = oplogs[0].checkout();
         for oplog in &oplogs[1..] {
             assert_eq!(first, oplog.checkout());
+        }
+    }
+
+    /// Incremental sync between two peers — the pattern used by the stress test.
+    /// Each peer generates ops, then exchanges only the NEW ops (not full state).
+    #[test]
+    fn incremental_sync_two_peers() {
+        let uuid_a = Uuid::from_u128(0xA);
+        let uuid_b = Uuid::from_u128(0xB);
+
+        let mut a = OpLog::new();
+        let mut b = OpLog::new();
+        let agent_a = a.cg.get_or_create_agent_id(uuid_a);
+        a.cg.get_or_create_agent_id(uuid_b);
+        b.cg.get_or_create_agent_id(uuid_a);
+        let agent_b = b.cg.get_or_create_agent_id(uuid_b);
+
+        // Round 1: A writes, syncs to B
+        a.local_map_set(agent_a, ROOT_CRDT_ID, "k", CreateValue::Primitive(Primitive::I64(1)));
+        let frontier_a = a.cg.version.clone();
+        let ops_a: SerializedOpsOwned = a.ops_since(&[]).into();
+        b.merge_ops_owned(ops_a).unwrap();
+
+        // Round 2: Both write concurrently
+        a.local_map_set(agent_a, ROOT_CRDT_ID, "k", CreateValue::Primitive(Primitive::I64(2)));
+        b.local_map_set(agent_b, ROOT_CRDT_ID, "k", CreateValue::Primitive(Primitive::I64(3)));
+
+        // Incremental sync: A sends only new ops since last sync
+        let ops_a2: SerializedOpsOwned = a.ops_since(frontier_a.as_ref()).into();
+        let _frontier_b = b.cg.version.clone();
+        let ops_b: SerializedOpsOwned = b.ops_since(&[]).into(); // B sends everything (first sync from B)
+
+        b.merge_ops_owned(ops_a2).unwrap();
+        a.merge_ops_owned(ops_b).unwrap();
+
+        // Verify convergence
+        a.dbg_check(true);
+        b.dbg_check(true);
+        assert_eq!(a.checkout(), b.checkout());
+    }
+
+    /// Multiple rounds of incremental sync with overlapping knowledge.
+    /// This is the pattern that causes the stress test panic.
+    #[test]
+    fn incremental_sync_multiple_rounds() {
+        let uuid_a = Uuid::from_u128(0xA);
+        let uuid_b = Uuid::from_u128(0xB);
+
+        let mut a = OpLog::new();
+        let mut b = OpLog::new();
+        let agent_a = a.cg.get_or_create_agent_id(uuid_a);
+        a.cg.get_or_create_agent_id(uuid_b);
+        b.cg.get_or_create_agent_id(uuid_a);
+        let agent_b = b.cg.get_or_create_agent_id(uuid_b);
+
+        let mut last_sync_a = Frontier::root();
+        let mut last_sync_b = Frontier::root();
+
+        for round in 0..10 {
+            // Both peers generate ops
+            for _ in 0..5 {
+                a.local_map_set(agent_a, ROOT_CRDT_ID, "counter",
+                    CreateValue::Primitive(Primitive::I64(round * 100)));
+                b.local_map_set(agent_b, ROOT_CRDT_ID, "counter",
+                    CreateValue::Primitive(Primitive::I64(round * 200)));
+            }
+
+            // Incremental sync: each sends only ops since last broadcast
+            let ops_a: SerializedOpsOwned = a.ops_since(last_sync_a.as_ref()).into();
+            let ops_b: SerializedOpsOwned = b.ops_since(last_sync_b.as_ref()).into();
+
+            last_sync_a = a.cg.version.clone();
+            last_sync_b = b.cg.version.clone();
+
+            b.merge_ops_owned(ops_a).unwrap();
+            a.merge_ops_owned(ops_b).unwrap();
+        }
+
+        a.dbg_check(true);
+        b.dbg_check(true);
+        assert_eq!(a.checkout(), b.checkout());
+    }
+
+    /// Three peers with partial knowledge — merging ops that include
+    /// operations the receiver already has from a different sender.
+    #[test]
+    fn three_peer_overlapping_incremental_sync() {
+        let uuids: Vec<Uuid> = (0..3).map(|i| Uuid::from_u128(0xA + i)).collect();
+
+        let mut peers: Vec<OpLog> = (0..3).map(|_| {
+            let mut oplog = OpLog::new();
+            for u in &uuids { oplog.cg.get_or_create_agent_id(*u); }
+            oplog
+        }).collect();
+
+        let agents: Vec<u32> = (0..3).map(|i| {
+            peers[i].cg.get_or_create_agent_id(uuids[i])
+        }).collect();
+
+        // Peer 0 writes
+        peers[0].local_map_set(agents[0], ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(1)));
+
+        // Sync 0 → 1
+        let ops: SerializedOpsOwned = peers[0].ops_since(&[]).into();
+        peers[1].merge_ops_owned(ops).unwrap();
+
+        // Peer 1 writes (now has peer 0's op as parent)
+        peers[1].local_map_set(agents[1], ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(2)));
+
+        // Peer 2 writes concurrently (doesn't know about 0 or 1)
+        peers[2].local_map_set(agents[2], ROOT_CRDT_ID, "x",
+            CreateValue::Primitive(Primitive::I64(3)));
+
+        // Sync 2 → 0 (0 gets peer 2's concurrent op)
+        let ops: SerializedOpsOwned = peers[2].ops_since(&[]).into();
+        peers[0].merge_ops_owned(ops).unwrap();
+
+        // Now 0 has: own ops + peer 2's ops. It broadcasts ALL new ops since root.
+        // This bundle includes peer 0's ops AND peer 2's ops.
+        // Peer 1 already has peer 0's ops but NOT peer 2's.
+        let _v0 = peers[0].cg.version.clone();
+        let ops_from_0: SerializedOpsOwned = peers[0].ops_since(&[]).into();
+        peers[1].merge_ops_owned(ops_from_0).unwrap();
+
+        // Sync 1 → 0 (0 gets peer 1's op, which parents off peer 0's op)
+        let ops_from_1: SerializedOpsOwned = peers[1].ops_since(&[]).into();
+        peers[0].merge_ops_owned(ops_from_1).unwrap();
+
+        // Sync everything to peer 2
+        let ops: SerializedOpsOwned = peers[0].ops_since(&[]).into();
+        peers[2].merge_ops_owned(ops).unwrap();
+
+        // Verify convergence
+        for p in &peers { p.dbg_check(true); }
+        let first = peers[0].checkout();
+        for p in &peers[1..] {
+            assert_eq!(first, p.checkout());
+        }
+    }
+
+    /// Incremental sync where the sender includes ops the receiver already has.
+    /// The receiver must handle the overlap in the CG decoding.
+    #[test]
+    fn incremental_sync_with_overlap() {
+        let uuid_a = Uuid::from_u128(0xA);
+        let uuid_b = Uuid::from_u128(0xB);
+
+        let mut a = OpLog::new();
+        let mut b = OpLog::new();
+        let agent_a = a.cg.get_or_create_agent_id(uuid_a);
+        a.cg.get_or_create_agent_id(uuid_b);
+        b.cg.get_or_create_agent_id(uuid_a);
+        let agent_b = b.cg.get_or_create_agent_id(uuid_b);
+
+        // A writes 10 ops
+        for i in 0..10 {
+            a.local_map_set(agent_a, ROOT_CRDT_ID, "k",
+                CreateValue::Primitive(Primitive::I64(i)));
+        }
+
+        // Sync A → B (partial: only first 5)
+        let v5 = {
+            // Find version after 5 ops by building frontier manually
+            // Actually just sync all first, then B does its own ops
+            let ops: SerializedOpsOwned = a.ops_since(&[]).into();
+            b.merge_ops_owned(ops).unwrap();
+            b.cg.version.clone()
+        };
+
+        // B writes ops that causally depend on A's ops
+        for i in 0..5 {
+            b.local_map_set(agent_b, ROOT_CRDT_ID, "k",
+                CreateValue::Primitive(Primitive::I64(100 + i)));
+        }
+
+        // B sends ops since its last known version of A
+        // This includes B's new ops which parent off A's ops
+        let ops_b: SerializedOpsOwned = b.ops_since(v5.as_ref()).into();
+
+        // A already has its own ops. B's bundle references A's ops as parents.
+        // The decoder must handle the fact that those parent ops are already in A's CG.
+        a.merge_ops_owned(ops_b).unwrap();
+
+        a.dbg_check(true);
+        b.dbg_check(true);
+        assert_eq!(a.checkout(), b.checkout());
+    }
+
+    /// Stress the incremental sync with text operations and multiple rounds,
+    /// similar to what the stress test does.
+    #[test]
+    fn incremental_sync_text_ops() {
+        let uuid_a = Uuid::from_u128(0xA);
+        let uuid_b = Uuid::from_u128(0xB);
+
+        let mut a = OpLog::new();
+        let mut b = OpLog::new();
+        let agent_a = a.cg.get_or_create_agent_id(uuid_a);
+        a.cg.get_or_create_agent_id(uuid_b);
+        b.cg.get_or_create_agent_id(uuid_a);
+        let agent_b = b.cg.get_or_create_agent_id(uuid_b);
+
+        // Create text CRDT on A
+        let text_id = a.local_map_set(agent_a, ROOT_CRDT_ID, "content",
+            CreateValue::NewCRDT(CRDTKind::Text));
+
+        // A writes some text
+        use crate::list::operation::TextOperation;
+        a.local_text_op(agent_a, text_id, TextOperation::new_insert(0, "hello "));
+
+        // Full sync to B
+        let ops: SerializedOpsOwned = a.ops_since(&[]).into();
+        b.merge_ops_owned(ops).unwrap();
+        let mut last_a = a.cg.version.clone();
+        let mut last_b = b.cg.version.clone();
+
+        // Multiple rounds of concurrent text edits
+        for _round in 0..5 {
+            // A inserts at position 0
+            a.local_text_op(agent_a, text_id, TextOperation::new_insert(0, "a"));
+
+            // B gets the text CRDT and inserts at end
+            let (_, b_text_id) = b.crdt_at_path(&["content"]);
+            let b_text_len = b.checkout_text(b_text_id).len_chars();
+            b.local_text_op(agent_b, b_text_id, TextOperation::new_insert(b_text_len, "b"));
+
+            // Incremental sync
+            let ops_a: SerializedOpsOwned = a.ops_since(last_a.as_ref()).into();
+            let ops_b: SerializedOpsOwned = b.ops_since(last_b.as_ref()).into();
+            last_a = a.cg.version.clone();
+            last_b = b.cg.version.clone();
+
+            b.merge_ops_owned(ops_a).unwrap();
+            a.merge_ops_owned(ops_b).unwrap();
+        }
+
+        a.dbg_check(true);
+        b.dbg_check(true);
+        assert_eq!(a.checkout(), b.checkout());
+    }
+
+    /// Four peers doing rapid incremental sync where each peer only sends
+    /// ops since its last broadcast. This creates complex causal graphs
+    /// with lots of overlapping data in the serialized chunks.
+    #[test]
+    fn four_peer_rapid_incremental_sync() {
+        let n = 4;
+        let uuids: Vec<Uuid> = (0..n).map(|i| Uuid::from_u128(0xBEEF + i as u128)).collect();
+
+        let mut peers: Vec<OpLog> = (0..n).map(|_| {
+            let mut oplog = OpLog::new();
+            for u in &uuids { oplog.cg.get_or_create_agent_id(*u); }
+            oplog
+        }).collect();
+
+        let agents: Vec<u32> = (0..n).map(|i| {
+            peers[i].cg.get_or_create_agent_id(uuids[i])
+        }).collect();
+
+        // Track last broadcast version for each peer
+        let mut last_broadcast: Vec<Frontier> = vec![Frontier::root(); n];
+
+        for round in 0..10 {
+            // Each peer does some ops
+            for i in 0..n {
+                for _ in 0..3 {
+                    peers[i].local_map_set(agents[i], ROOT_CRDT_ID, "shared",
+                        CreateValue::Primitive(Primitive::I64(round * 100 + i as i64)));
+                }
+            }
+
+            // Each peer broadcasts to all others (incremental)
+            // Collect ops first to avoid borrow issues
+            let broadcasts: Vec<SerializedOpsOwned> = (0..n).map(|i| {
+                let ops: SerializedOpsOwned = peers[i].ops_since(last_broadcast[i].as_ref()).into();
+                last_broadcast[i] = peers[i].cg.version.clone();
+                ops
+            }).collect();
+
+            // Apply broadcasts
+            for sender in 0..n {
+                for receiver in 0..n {
+                    if sender != receiver {
+                        peers[receiver].merge_ops_owned(broadcasts[sender].clone()).unwrap();
+                    }
+                }
+            }
+        }
+
+        // Final full sync
+        sync_all_oplogs(&mut peers);
+
+        for p in &peers { p.dbg_check(true); }
+        let first = peers[0].checkout();
+        for p in &peers[1..] {
+            assert_eq!(first, p.checkout());
+        }
+    }
+
+    /// Test that ops_since with a non-root frontier produces valid
+    /// serialized data when the diff contains multiple ranges (branches).
+    #[test]
+    fn ops_since_branching_diff() {
+        let uuid_a = Uuid::from_u128(0xA);
+        let uuid_b = Uuid::from_u128(0xB);
+
+        let mut a = OpLog::new();
+        let mut b = OpLog::new();
+        let agent_a = a.cg.get_or_create_agent_id(uuid_a);
+        a.cg.get_or_create_agent_id(uuid_b);
+        b.cg.get_or_create_agent_id(uuid_a);
+        let agent_b = b.cg.get_or_create_agent_id(uuid_b);
+
+        // A writes several ops
+        for i in 0..10 {
+            a.local_map_set(agent_a, ROOT_CRDT_ID, "k",
+                CreateValue::Primitive(Primitive::I64(i)));
+        }
+
+        // B writes concurrently
+        for i in 0..10 {
+            b.local_map_set(agent_b, ROOT_CRDT_ID, "k",
+                CreateValue::Primitive(Primitive::I64(100 + i)));
+        }
+
+        // Save B's version before merge
+        let b_pre_merge = b.cg.version.clone();
+
+        // Merge A → B (B now has both branches)
+        let ops: SerializedOpsOwned = a.ops_since(&[]).into();
+        b.merge_ops_owned(ops).unwrap();
+
+        // B writes more ops (these causally depend on both branches)
+        for i in 0..5 {
+            b.local_map_set(agent_b, ROOT_CRDT_ID, "k",
+                CreateValue::Primitive(Primitive::I64(200 + i)));
+        }
+
+        // Now ops_since(b_pre_merge) should include A's ops (which are on a
+        // different branch) AND B's new ops. The diff will have multiple ranges.
+        let ops: SerializedOpsOwned = b.ops_since(b_pre_merge.as_ref()).into();
+
+        // This should deserialize without panic on a fresh oplog
+        let mut c = OpLog::new();
+        c.cg.get_or_create_agent_id(uuid_a);
+        c.cg.get_or_create_agent_id(uuid_b);
+
+        // First give C the base state (B's pre-merge ops)
+        let base: SerializedOpsOwned = {
+            let mut temp = OpLog::new();
+            temp.cg.get_or_create_agent_id(uuid_a);
+            let temp_agent_b = temp.cg.get_or_create_agent_id(uuid_b);
+            for i in 0..10 {
+                temp.local_map_set(temp_agent_b, ROOT_CRDT_ID, "k",
+                    CreateValue::Primitive(Primitive::I64(100 + i)));
+            }
+            temp.ops_since(&[]).into()
+        };
+        c.merge_ops_owned(base).unwrap();
+
+        // Now merge the incremental ops (which contain multiple branches)
+        c.merge_ops_owned(ops).unwrap();
+
+        c.dbg_check(true);
+    }
+
+    /// Test that simulates the exact stress test pattern:
+    /// multiple peers with remote frontier-based incremental sync.
+    #[test]
+    fn stress_pattern_remote_frontier_sync() {
+        use crate::{Document, PrimitiveValue, RemoteFrontier};
+
+        let uuids: Vec<Uuid> = (0..4).map(|i| Uuid::from_u128(0xBEEF + i as u128)).collect();
+
+        let mut docs: Vec<Document> = (0..4).map(|_| {
+            let mut doc = Document::new();
+            for u in &uuids { doc.create_agent(*u); }
+            doc
+        }).collect();
+
+        // Capture agent IDs from the initial registration loop
+        let agents: Vec<u32> = (0..4).map(|i| {
+            // The agent was already created in the loop above.
+            // Agent i's UUID is uuids[i], and in each doc it was registered
+            // at position i (0-indexed), so agent ID = i as u32.
+            i as u32
+        }).collect();
+
+        // Track last broadcast using remote frontiers (like stress test)
+        let mut last_broadcast: Vec<RemoteFrontier> = vec![Default::default(); 4];
+
+        for round in 0..20i64 {
+            // Each peer does ops
+            for i in 0..4 {
+                let agent = agents[i];
+                docs[i].transact(agent, |tx| {
+                    tx.root().set("shared", PrimitiveValue::Int(round * 10 + i as i64));
+                });
+            }
+
+            // Each peer broadcasts incremental ops to all others
+            let broadcasts: Vec<SerializedOpsOwned> = (0..4).map(|i| {
+                let ops: SerializedOpsOwned = docs[i].ops_since_remote(&last_broadcast[i]).into();
+                last_broadcast[i] = docs[i].remote_version();
+                ops
+            }).collect();
+
+            for sender in 0..4 {
+                for receiver in 0..4 {
+                    if sender != receiver {
+                        docs[receiver].merge_ops(broadcasts[sender].clone()).unwrap();
+                    }
+                }
+            }
+        }
+
+        // Verify convergence
+        let first = docs[0].checkout();
+        for doc in &docs[1..] {
+            assert_eq!(first, doc.checkout());
+        }
+    }
+
+    /// Like stress_pattern_remote_frontier_sync but with text CRDT operations,
+    /// which exercise a different code path in the serializer.
+    #[test]
+    fn stress_pattern_text_remote_frontier() {
+        use crate::{Document, PrimitiveValue, RemoteFrontier};
+
+        let uuids: Vec<Uuid> = (0..3).map(|i| Uuid::from_u128(0xCAFE + i as u128)).collect();
+
+        let mut docs: Vec<Document> = (0..3).map(|_| {
+            let mut doc = Document::new();
+            for u in &uuids { doc.create_agent(*u); }
+            doc
+        }).collect();
+
+        let agents: Vec<u32> = (0..3).map(|i| i as u32).collect();
+
+        // Create text field
+        docs[0].transact(agents[0], |tx| { tx.root().create_text("body"); });
+
+        // Full sync so all peers have the text CRDT
+        let ops: SerializedOpsOwned = docs[0].ops_since(&Frontier::root()).into();
+        for doc in &mut docs[1..] { doc.merge_ops(ops.clone()).unwrap(); }
+
+        let mut last_broadcast: Vec<RemoteFrontier> = (0..3)
+            .map(|i| docs[i].remote_version())
+            .collect();
+
+        for round in 0..15 {
+            // Each peer inserts text
+            for i in 0..3 {
+                let len = docs[i].root().get_text("body").map(|t| t.len()).unwrap_or(0);
+                let agent = agents[i];
+                docs[i].transact(agent, |tx| {
+                    if let Some(mut text) = tx.get_text_mut(&["body"]) {
+                        text.insert(len, &format!("r{}p{} ", round, i));
+                    }
+                });
+                // Also write a map key to exercise mixed CRDT types
+                docs[i].transact(agent, |tx| {
+                    tx.root().set("round", PrimitiveValue::Int(round));
+                });
+            }
+
+            // Incremental broadcast
+            let broadcasts: Vec<SerializedOpsOwned> = (0..3).map(|i| {
+                let ops: SerializedOpsOwned = docs[i].ops_since_remote(&last_broadcast[i]).into();
+                last_broadcast[i] = docs[i].remote_version();
+                ops
+            }).collect();
+
+            for sender in 0..3 {
+                for receiver in 0..3 {
+                    if sender != receiver {
+                        docs[receiver].merge_ops(broadcasts[sender].clone()).unwrap();
+                    }
+                }
+            }
+        }
+
+        let first = docs[0].checkout();
+        for doc in &docs[1..] {
+            assert_eq!(first, doc.checkout());
         }
     }
 

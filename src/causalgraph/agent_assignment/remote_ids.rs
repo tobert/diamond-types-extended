@@ -1,6 +1,6 @@
 //! This file contains utilities to convert remote IDs to local version and back.
 
-use smartstring::alias::String as SmartString;
+use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use crate::rle::{HasLength, MergableSpan, SplitableSpanHelpers};
@@ -10,93 +10,79 @@ use crate::causalgraph::agent_assignment::AgentAssignment;
 use crate::causalgraph::agent_span::{AgentVersion, AgentSpan};
 
 /// Remote IDs are IDs you can pass to a remote peer.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[derive(Serialize, Deserialize)]
-pub struct RemoteVersionOwned(pub SmartString, pub usize);
-
+/// With UUID agent IDs, these are Copy and have no lifetime.
+///
+/// The sequence number is `u64` for cross-platform wire compatibility
+/// (consistent size on 32-bit WASM and 64-bit native).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
-pub struct RemoteVersion<'a>(pub &'a str, pub usize);
+pub struct RemoteVersion(pub Uuid, pub u64);
 
-impl<'a> From<&'a RemoteVersionOwned> for RemoteVersion<'a> {
-    fn from(rv: &'a RemoteVersionOwned) -> Self {
-        RemoteVersion(rv.0.as_str(), rv.1)
-    }
-}
-impl<'a> From<&RemoteVersion<'a>> for RemoteVersionOwned {
-    fn from(rv: &RemoteVersion) -> Self {
-        RemoteVersionOwned(rv.0.into(), rv.1)
-    }
-}
-impl<'a> From<RemoteVersion<'a>> for RemoteVersionOwned {
-    fn from(rv: RemoteVersion) -> Self {
-        RemoteVersionOwned(rv.0.into(), rv.1)
+impl From<(Uuid, u64)> for RemoteVersion {
+    fn from(r: (Uuid, u64)) -> Self {
+        Self(r.0, r.1)
     }
 }
 
-impl<'a> RemoteVersion<'a> {
-    pub fn to_owned(self) -> RemoteVersionOwned {
-        self.into()
+/// A range of sequence numbers, using `u64` for wire safety.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize)]
+pub struct RemoteSeqRange {
+    pub start: u64,
+    pub end: u64,
+}
+
+impl RemoteSeqRange {
+    pub fn len(&self) -> u64 { self.end - self.start }
+    pub fn is_empty(&self) -> bool { self.start == self.end }
+}
+
+impl From<DTRange> for RemoteSeqRange {
+    fn from(r: DTRange) -> Self {
+        Self { start: r.start as u64, end: r.end as u64 }
     }
 }
 
-// impl AsRef<RawVersionRef<'a>> for RawVersion {
-//     fn as_ref(&self) -> &'a RawVersionRef {
-//         &RawVersionRef(self.0.as_str(), self.1)
-//     }
-// }
-// impl<'a> From<&'a RawVersion> for RawVersionRef<'a> {
-//     fn from(rv: &'a RawVersion) -> Self {
-//         RawVersionRef(rv.0.as_str(), rv.1)
-//     }
-// }
-
-impl<S> From<(S, usize)> for RemoteVersionOwned where S: Into<SmartString> {
-    fn from(r: (S, usize)) -> Self {
-        Self(r.0.into(), r.1)
-    }
-}
-impl<'a, S> From<(S, usize)> for RemoteVersion<'a> where S: Into<&'a str> {
-    fn from(r: (S, usize)) -> Self {
-        Self(r.0.into(), r.1)
+impl From<RemoteSeqRange> for DTRange {
+    fn from(r: RemoteSeqRange) -> Self {
+        Self {
+            start: usize::try_from(r.start).expect("seq exceeds usize on this platform"),
+            end: usize::try_from(r.end).expect("seq exceeds usize on this platform"),
+        }
     }
 }
 
 /// External equivalent of CRDTSpan.
-/// TODO: Do the same treatment here for seq_range.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[derive(Serialize, Deserialize)]
-pub struct RemoteVersionSpanOwned(pub SmartString, pub DTRange);
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
-pub struct RemoteVersionSpan<'a>(pub &'a str, pub DTRange);
+pub struct RemoteVersionSpan(pub Uuid, pub RemoteSeqRange);
 
-impl<'a> HasLength for RemoteVersionSpan<'a> {
+impl HasLength for RemoteVersionSpan {
     fn len(&self) -> usize {
-        self.1.len()
+        self.1.len() as usize
     }
 }
 
-impl<'a> SplitableSpanHelpers for RemoteVersionSpan<'a> {
+impl SplitableSpanHelpers for RemoteVersionSpan {
     fn truncate_h(&mut self, at: usize) -> Self {
-        Self(self.0, self.1.truncate_h(at))
+        let at64 = at as u64;
+        let rest = RemoteSeqRange { start: self.1.start + at64, end: self.1.end };
+        self.1.end = self.1.start + at64;
+        Self(self.0, rest)
     }
 }
 
-impl<'a> MergableSpan for RemoteVersionSpan<'a> {
+impl MergableSpan for RemoteVersionSpan {
     fn can_append(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1.can_append(&other.1)
+        self.0 == other.0 && self.1.end == other.1.start
     }
 
     fn append(&mut self, other: Self) {
-        self.1.append(other.1)
+        self.1.end = other.1.end;
     }
 }
 
-pub type RemoteFrontier<'a> = SmallVec<RemoteVersion<'a>, 2>;
-
-pub type RemoteFrontierOwned = SmallVec<RemoteVersionOwned, 2>;
+pub type RemoteFrontier = SmallVec<RemoteVersion, 2>;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[derive(Serialize)]
@@ -110,99 +96,89 @@ impl AgentAssignment {
         let agent = self.get_agent_id(rv.0)
             .ok_or(VersionConversionError::UnknownAgent)?;
 
+        let seq = usize::try_from(rv.1)
+            .map_err(|_| VersionConversionError::SeqInFuture)?;
         self.client_data[agent as usize]
-            .try_seq_to_lv(rv.1)
+            .try_seq_to_lv(seq)
             .ok_or(VersionConversionError::SeqInFuture)
     }
 
     /// This panics if the ID isn't known to the document.
-    pub fn remote_to_local_version(&self, RemoteVersion(name, seq): RemoteVersion) -> LV {
-        let agent = self.get_agent_id(name).unwrap();
+    pub fn remote_to_local_version(&self, RemoteVersion(uuid, seq): RemoteVersion) -> LV {
+        let agent = self.get_agent_id(uuid).unwrap();
+        let seq = usize::try_from(seq).expect("seq exceeds usize on this platform");
         self.client_data[agent as usize].seq_to_lv(seq)
     }
 
-    pub(crate) fn agent_version_to_remote(&self, (agent, seq): AgentVersion) -> RemoteVersion<'_> {
+    pub(crate) fn agent_version_to_remote(&self, (agent, seq): AgentVersion) -> RemoteVersion {
         RemoteVersion(
-            self.get_agent_name(agent),
-            seq
+            self.get_agent_uuid(agent),
+            seq as u64
         )
     }
 
-    pub(crate) fn agent_span_to_remote(&self, loc: AgentSpan) -> RemoteVersionSpan<'_> {
+    pub(crate) fn agent_span_to_remote(&self, loc: AgentSpan) -> RemoteVersionSpan {
         RemoteVersionSpan(
-            self.get_agent_name(loc.agent),
-            loc.seq_range
+            self.get_agent_uuid(loc.agent),
+            loc.seq_range.into()
         )
     }
 
-    pub(crate) fn remote_to_agent_version_unknown(&mut self, RemoteVersion(name, seq): RemoteVersion) -> AgentVersion {
-        let agent = self.get_or_create_agent_id(name);
-        (agent, seq)
+    pub(crate) fn remote_to_agent_version_unknown(&mut self, RemoteVersion(uuid, seq): RemoteVersion) -> AgentVersion {
+        let agent = self.get_or_create_agent_id(uuid);
+        (agent, usize::try_from(seq).expect("seq exceeds usize on this platform"))
     }
-    pub(crate) fn remote_to_agent_version_known(&self, RemoteVersion(name, seq): RemoteVersion) -> AgentVersion {
-        let agent = self.get_agent_id(name).unwrap();
-        (agent, seq)
+    pub(crate) fn remote_to_agent_version_known(&self, RemoteVersion(uuid, seq): RemoteVersion) -> AgentVersion {
+        let agent = self.get_agent_id(uuid).unwrap();
+        (agent, usize::try_from(seq).expect("seq exceeds usize on this platform"))
     }
 
-    pub fn local_to_remote_version(&self, v: LV) -> RemoteVersion<'_> {
+    pub fn local_to_remote_version(&self, v: LV) -> RemoteVersion {
         let agent_v = self.local_to_agent_version(v);
         self.agent_version_to_remote(agent_v)
     }
 
     /// **NOTE:** This method will return a version span with length min(lv, agent_v). The
     /// resulting length will NOT be guaranteed to be the same as the input.
-    pub fn local_to_remote_version_span(&self, v: DTRange) -> RemoteVersionSpan<'_> {
+    pub fn local_to_remote_version_span(&self, v: DTRange) -> RemoteVersionSpan {
         let agent_span = self.local_span_to_agent_span(v);
         self.agent_span_to_remote(agent_span)
     }
 
-    pub fn try_remote_to_local_frontier<'a, B: 'a, I>(&self, ids_iter: I) -> Result<Frontier, VersionConversionError>
-        where RemoteVersion<'a>: From<B>, I: Iterator<Item=B> + 'a
+    pub fn try_remote_to_local_frontier<I>(&self, ids_iter: I) -> Result<Frontier, VersionConversionError>
+        where I: Iterator<Item=RemoteVersion>
     {
         let frontier: Frontier = ids_iter
-            .map(|rv| self.try_remote_to_local_version(rv.into()))
+            .map(|rv| self.try_remote_to_local_version(rv))
             .collect::<Result<Frontier, VersionConversionError>>()?;
 
         Ok(frontier)
     }
 
-    // pub fn try_remote_to_local_frontier<'a, I: Iterator<Item=RemoteVersion<'a>> + 'a>(&self, ids_iter: I) -> Result<Frontier, VersionConversionError> {
-    // }
-
-    // This method should work for &RemoteVersionOwned and RemoteVersion and whatever else.
-    pub fn remote_to_local_frontier<'a, B: 'a, I>(&self, ids_iter: I) -> Frontier
-        where RemoteVersion<'a>: From<B>, I: Iterator<Item=B> + 'a
+    pub fn remote_to_local_frontier<I>(&self, ids_iter: I) -> Frontier
+        where I: Iterator<Item=RemoteVersion>
     {
         let frontier: Frontier = ids_iter
-            .map(|rv| self.remote_to_local_version(rv.into()))
+            .map(|rv| self.remote_to_local_version(rv))
             .collect();
 
         frontier
     }
 
-    pub fn local_to_remote_frontier(&'_ self, local_frontier: &[LV]) -> RemoteFrontier<'_> {
-        // Could return an impl Iterator here instead.
+    pub fn local_to_remote_frontier(&self, local_frontier: &[LV]) -> RemoteFrontier {
         local_frontier
             .iter()
             .map(|lv| self.local_to_remote_version(*lv))
             .collect()
     }
 
-    pub fn local_to_remote_frontier_owned(&'_ self, local_frontier: &[LV]) -> RemoteFrontierOwned {
-        // Could return an impl Iterator here instead.
-        local_frontier
-            .iter()
-            .map(|lv| self.local_to_remote_version(*lv).into())
-            .collect()
-    }
-
-    pub fn iter_remote_mappings(&self) -> impl Iterator<Item = RemoteVersionSpan<'_>> + '_ {
+    pub fn iter_remote_mappings(&self) -> impl Iterator<Item = RemoteVersionSpan> + '_ {
         self.client_with_lv
             .iter()
             .map(|item| self.agent_span_to_remote(item.1))
     }
 
-    pub fn iter_remote_mappings_range(&self, range: DTRange) -> impl Iterator<Item = RemoteVersionSpan<'_>> + '_ {
+    pub fn iter_remote_mappings_range(&self, range: DTRange) -> impl Iterator<Item = RemoteVersionSpan> + '_ {
         self.client_with_lv
             .iter_range(range)
             .map(|item| self.agent_span_to_remote(item.1))
@@ -211,37 +187,27 @@ impl AgentAssignment {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
     use crate::causalgraph::agent_assignment::remote_ids::RemoteVersion;
     use crate::CausalGraph;
 
     #[test]
     fn id_smoke_test() {
         let mut cg = CausalGraph::new();
-        cg.get_or_create_agent_id("seph");
-        cg.get_or_create_agent_id("mike");
+        cg.get_or_create_agent_id(Uuid::from_u128(0x5E98));
+        cg.get_or_create_agent_id(Uuid::from_u128(0x341CE));
         cg.assign_local_op_with_parents(&[], 0, 2);
         cg.assign_local_op_with_parents(&[], 1, 4);
 
-        assert_eq!(0, cg.agent_assignment.remote_to_local_version(RemoteVersion("seph", 0)));
-        assert_eq!(1, cg.agent_assignment.remote_to_local_version(RemoteVersion("seph", 1)));
-        assert_eq!(2, cg.agent_assignment.remote_to_local_version(RemoteVersion("mike", 0)));
+        assert_eq!(0, cg.agent_assignment.remote_to_local_version(RemoteVersion(Uuid::from_u128(0x5E98), 0)));
+        assert_eq!(1, cg.agent_assignment.remote_to_local_version(RemoteVersion(Uuid::from_u128(0x5E98), 1)));
+        assert_eq!(2, cg.agent_assignment.remote_to_local_version(RemoteVersion(Uuid::from_u128(0x341CE), 0)));
 
         for lv in 0..cg.len() {
             let rv = cg.agent_assignment.local_to_remote_version(lv);
             let expect_lv = cg.agent_assignment.remote_to_local_version(rv);
             assert_eq!(lv, expect_lv);
         }
-
-        // assert_eq!(oplog.get_vector_clock().as_slice(), &[
-        //     RemoteId {
-        //         agent: "seph".into(),
-        //         seq: 2,
-        //     },
-        //     RemoteId {
-        //         agent: "mike".into(),
-        //         seq: 4,
-        //     },
-        // ]);
     }
 
     #[test]

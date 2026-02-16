@@ -7,11 +7,11 @@
 //! ## Quick Start
 //!
 //! ```
-//! use diamond_types_extended::{Document, Value};
+//! use diamond_types_extended::{Document, Uuid, Value};
 //!
 //! // Create a document
 //! let mut doc = Document::new();
-//! let alice = doc.get_or_create_agent("alice");
+//! let alice = doc.create_agent(Uuid::now_v7());
 //!
 //! // All mutations happen in transactions
 //! doc.transact(alice, |tx| {
@@ -69,7 +69,9 @@ use smartstring::alias::String as SmartString;
 use causalgraph::graph::Graph;
 pub use frontier::Frontier;
 
-use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteVersionOwned};
+pub use uuid::Uuid;
+pub use ordered_float::NotNan;
+pub use crate::causalgraph::agent_assignment::remote_ids::{RemoteVersion, RemoteFrontier};
 use crate::causalgraph::agent_span::AgentVersion;
 pub(crate) use crate::causalgraph::CausalGraph;
 pub(crate) use crate::dtrange::DTRange;
@@ -163,7 +165,7 @@ pub(crate) enum Primitive {
     Nil,
     Bool(bool),
     I64(i64),
-    // F64(f64),
+    F64(NotNan<f64>),
     Str(SmartString),
 
     #[serde(skip)]
@@ -178,6 +180,7 @@ impl Debug for Primitive {
             Primitive::Bool(val) => val.fmt(f),
             // Primitive::I64(val) => f.debug_tuple("I64").field(val).finish(),
             Primitive::I64(val) => val.fmt(f),
+            Primitive::F64(val) => val.fmt(f),
             Primitive::Str(val) => val.fmt(f),
             Primitive::InvalidUninitialized => f.debug_tuple("InvalidUninitialized").finish()
         }
@@ -366,11 +369,11 @@ pub struct SerializedOps<'a> {
 
     // The version of the op, and the name of the containing CRDT.
     #[serde(borrow)]
-    map_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, &'a str, CreateValue)>,
-    text_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, ListOpMetrics)>,
+    map_ops: Vec<(RemoteVersion, RemoteVersion, &'a str, CreateValue)>,
+    text_ops: Vec<(RemoteVersion, RemoteVersion, ListOpMetrics)>,
     text_context: ListOperationCtx,
     /// OR-Set operations: (crdt_name, op_version, `SerializedSetOp<Primitive>`)
-    set_ops: Vec<(RemoteVersion<'a>, RemoteVersion<'a>, set::SerializedSetOp<Primitive>)>,
+    set_ops: Vec<(RemoteVersion, RemoteVersion, set::SerializedSetOp<Primitive>)>,
 }
 
 impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
@@ -378,15 +381,11 @@ impl<'a> From<SerializedOps<'a>> for SerializedOpsOwned {
         Self {
             cg_changes: ops.cg_changes,
             map_ops: ops.map_ops.into_iter().map(|(crdt_name, rv, key, val)| {
-                (crdt_name.to_owned(), rv.to_owned(), SmartString::from(key), val)
+                (crdt_name, rv, SmartString::from(key), val)
             }).collect(),
-            text_ops: ops.text_ops.into_iter().map(|(crdt_name, rv, metrics)| {
-                (crdt_name.to_owned(), rv.to_owned(), metrics)
-            }).collect(),
+            text_ops: ops.text_ops,
             text_context: ops.text_context,
-            set_ops: ops.set_ops.into_iter().map(|(crdt_name, rv, op)| {
-                (crdt_name.to_owned(), rv.to_owned(), op)
-            }).collect(),
+            set_ops: ops.set_ops,
         }
     }
 }
@@ -412,11 +411,11 @@ pub struct SerializedOpsOwned {
     cg_changes: Vec<u8>,
 
     // The version of the op, and the name of the containing CRDT.
-    map_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, SmartString, CreateValue)>,
-    text_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, ListOpMetrics)>,
+    map_ops: Vec<(RemoteVersion, RemoteVersion, SmartString, CreateValue)>,
+    text_ops: Vec<(RemoteVersion, RemoteVersion, ListOpMetrics)>,
     text_context: ListOperationCtx,
     /// OR-Set operations: (crdt_name, op_version, `SerializedSetOp<Primitive>`)
-    set_ops: Vec<(RemoteVersionOwned, RemoteVersionOwned, set::SerializedSetOp<Primitive>)>,
+    set_ops: Vec<(RemoteVersion, RemoteVersion, set::SerializedSetOp<Primitive>)>,
 }
 
 impl SerializedOpsOwned {

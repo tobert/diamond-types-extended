@@ -1,11 +1,11 @@
 //! Integration tests for Text CRDT
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Uuid};
 
 #[test]
 fn test_text_creation() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("content")
@@ -21,7 +21,7 @@ fn test_text_creation() {
 #[test]
 fn test_text_insert() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")
@@ -45,7 +45,7 @@ fn test_text_insert() {
 #[test]
 fn test_text_delete() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")
@@ -67,7 +67,7 @@ fn test_text_delete() {
 #[test]
 fn test_text_replace() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")
@@ -89,7 +89,7 @@ fn test_text_replace() {
 #[test]
 fn test_text_push() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")
@@ -108,7 +108,7 @@ fn test_text_push() {
 #[test]
 fn test_text_clear() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")
@@ -132,7 +132,7 @@ fn test_text_clear() {
 #[test]
 fn test_text_unicode() {
     let mut doc = Document::new();
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     let text_id = doc.transact(alice, |tx| {
         tx.root().create_text("doc")

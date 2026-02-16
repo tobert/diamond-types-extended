@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use uuid::Uuid;
 use crate::{CausalGraph, Frontier};
 use crate::list_fuzzer_tools::{choose_2, fuzz_multithreaded};
 
@@ -25,7 +26,7 @@ fn fuzz_cg_flat(seed: u64, verbose: bool) {
     let mut rng = SmallRng::seed_from_u64(seed);
 
     let mut cgs = [CausalGraph::new(), CausalGraph::new(), CausalGraph::new()];
-    let agents = ["a", "b", "c"];
+    let agents = [Uuid::from_u128(0xA), Uuid::from_u128(0xB), Uuid::from_u128(0xC)];
 
     for c in &mut cgs {
         for a in &agents {

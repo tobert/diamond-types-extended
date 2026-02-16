@@ -3,6 +3,7 @@
 
 use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
+use uuid::Uuid;
 use crate::{AgentId, CausalGraph, DTRange, Frontier};
 use crate::list_fuzzer_tools::choose_2;
 
@@ -14,7 +15,7 @@ pub(crate) fn with_random_cgs<F: FnMut((usize, usize), &CausalGraph, &[Frontier]
         let mut frontiers = [Frontier::root(), Frontier::root(), Frontier::root()];
         let mut cg = CausalGraph::new();
 
-        let agents = ["a", "b", "c"];
+        let agents = [Uuid::from_u128(0xA), Uuid::from_u128(0xB), Uuid::from_u128(0xC)];
         // Agent IDs 0, 1 and 2.
         for a in agents { cg.get_or_create_agent_id(a); }
 

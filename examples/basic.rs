@@ -8,14 +8,14 @@
 //!
 //! Run with: cargo run --example basic
 
-use diamond_types_extended::Document;
+use diamond_types_extended::{Document, Uuid};
 
 fn main() {
     // Create a new document
     let mut doc = Document::new();
 
     // Create an agent (represents a user/session)
-    let alice = doc.get_or_create_agent("alice");
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
 
     println!("=== Basic Map Operations ===");
 

@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use uuid::Uuid;
 
 use crate::list::ListCRDT;
 use crate::list::old_fuzzer_tools::old_make_random_change;
@@ -9,9 +10,8 @@ fn oplog_merge_fuzz(seed: u64, n: usize, verbose: bool) {
     let mut docs = [ListCRDT::new(), ListCRDT::new(), ListCRDT::new()];
 
     for i in 0..docs.len() {
-        // docs[i].get_or_create_agent_id(format!("agent {}", i).as_str());
         for a in 0..docs.len() {
-            docs[i].get_or_create_agent_id(format!("agent {}", a).as_str());
+            docs[i].get_or_create_agent_id(Uuid::from_u128(a as u128 + 1));
         }
     }
 

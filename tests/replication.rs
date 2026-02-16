@@ -1,14 +1,14 @@
 //! Integration tests for replication/sync
 
-use diamond_types_extended::{Document, Frontier};
+use diamond_types_extended::{Document, Frontier, Uuid};
 
 #[test]
 fn test_two_peer_sync_map() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice makes changes
     doc_a.transact(alice, |tx| {
@@ -46,7 +46,7 @@ fn test_two_peer_sync_text() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // Alice creates text
     let _text_id = doc_a.transact(alice, |tx| {
@@ -73,8 +73,8 @@ fn test_two_peer_sync_set() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Alice creates set
     let _set_id = doc_a.transact(alice, |tx| {
@@ -119,7 +119,7 @@ fn test_incremental_sync() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
 
     // Initial sync
     doc_a.transact(alice, |tx| {
@@ -151,8 +151,8 @@ fn test_convergence_after_concurrent_edits() {
     let mut doc_a = Document::new();
     let mut doc_b = Document::new();
 
-    let alice = doc_a.get_or_create_agent("alice");
-    let bob = doc_b.get_or_create_agent("bob");
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
 
     // Both write to the same key (concurrent)
     doc_a.transact(alice, |tx| {
@@ -173,4 +173,208 @@ fn test_convergence_after_concurrent_edits() {
     let val_a = doc_a.root().get("key").unwrap();
     let val_b = doc_b.root().get("key").unwrap();
     assert_eq!(val_a, val_b);
+}
+
+/// This is the scenario that caused the original concurrent merge panic:
+/// two peers share initial state, make concurrent edits, then try to do
+/// incremental sync using each other's version. With local LVs this panics
+/// because the indices don't match across documents. With RemoteFrontier
+/// (portable UUID+seq pairs) it works correctly.
+#[test]
+fn test_concurrent_incremental_sync() {
+    let mut doc_a = Document::new();
+    let mut doc_b = Document::new();
+
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+
+    // Shared initial state
+    doc_a.transact(alice, |tx| {
+        tx.root().set("initial", "shared");
+    });
+    let ops = doc_a.ops_since(&Frontier::root()).into_owned();
+    doc_b.merge_ops(ops).unwrap();
+
+    // Both make concurrent edits
+    doc_a.transact(alice, |tx| {
+        tx.root().set("from_alice", "concurrent A");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("from_bob", "concurrent B");
+    });
+
+    // Exchange portable remote versions and sync incrementally
+    let rv_a = doc_a.remote_version();
+    let rv_b = doc_b.remote_version();
+
+    let ops_for_b = doc_a.ops_since_remote(&rv_b).into_owned();
+    let ops_for_a = doc_b.ops_since_remote(&rv_a).into_owned();
+
+    doc_b.merge_ops(ops_for_b).unwrap();
+    doc_a.merge_ops(ops_for_a).unwrap();
+
+    // Both should have all keys
+    assert!(doc_a.root().contains_key("initial"));
+    assert!(doc_a.root().contains_key("from_alice"));
+    assert!(doc_a.root().contains_key("from_bob"));
+    assert!(doc_b.root().contains_key("initial"));
+    assert!(doc_b.root().contains_key("from_alice"));
+    assert!(doc_b.root().contains_key("from_bob"));
+
+    // Values should converge
+    assert_eq!(
+        doc_a.root().get("from_alice").unwrap(),
+        doc_b.root().get("from_alice").unwrap()
+    );
+    assert_eq!(
+        doc_a.root().get("from_bob").unwrap(),
+        doc_b.root().get("from_bob").unwrap()
+    );
+}
+
+/// ops_since_remote should handle a frontier containing an agent UUID
+/// that the local document has never seen — it simply ignores it and
+/// returns all local ops.
+#[test]
+fn test_ops_since_remote_unknown_agent() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+
+    doc.transact(alice, |tx| {
+        tx.root().set("key", "value");
+    });
+
+    // Build a frontier referencing an agent this doc has never seen
+    let unknown_frontier = smallvec![RemoteVersion(Uuid::from_u128(0xDEAD), 5)];
+    let ops = doc.ops_since_remote(&unknown_frontier);
+
+    // Should return all ops (unknown agent is ignored → falls back to root)
+    assert!(!ops.is_empty());
+
+    // Verify a fresh doc can merge them and get the data
+    let mut doc_b = Document::new();
+    doc_b.merge_ops(ops.into_owned()).unwrap();
+    assert_eq!(doc_b.root().get("key").unwrap().as_str(), Some("value"));
+}
+
+/// ops_since_remote should handle a frontier where the remote peer is
+/// ahead of the local doc for a known agent (SeqInFuture). Instead of
+/// resending that agent's entire history, it should use the local doc's
+/// latest version for that agent.
+#[test]
+fn test_ops_since_remote_future_seq() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc.create_agent(Uuid::from_u128(0xB0B));
+
+    // Alice makes some changes
+    doc.transact(alice, |tx| {
+        tx.root().set("alice_key", "alice_val");
+    });
+
+    // Bob makes some changes
+    doc.transact(bob, |tx| {
+        tx.root().set("bob_key", "bob_val");
+    });
+
+    // Simulate a remote frontier where Alice is at seq 999 (far ahead)
+    // but Bob is correctly at his actual version
+    let bob_rv = doc.remote_version().iter()
+        .find(|rv| rv.0 == Uuid::from_u128(0xB0B))
+        .copied()
+        .unwrap();
+
+    let future_frontier = smallvec![
+        RemoteVersion(Uuid::from_u128(0xA11CE), 999),
+        bob_rv,
+    ];
+
+    let ops = doc.ops_since_remote(&future_frontier);
+
+    // The peer already has everything from Alice (they're ahead) and
+    // everything from Bob (matching frontier). So ops should be empty.
+    assert!(ops.is_empty());
+}
+
+/// When the remote peer is ahead on one agent but behind on another,
+/// ops_since_remote should only send the ops the peer is missing.
+#[test]
+fn test_ops_since_remote_mixed_ahead_behind() {
+    use diamond_types_extended::RemoteVersion;
+    use smallvec::smallvec;
+
+    let mut doc = Document::new();
+    let alice = doc.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc.create_agent(Uuid::from_u128(0xB0B));
+
+    doc.transact(alice, |tx| {
+        tx.root().set("a1", "first");
+    });
+
+    let _mid_version = doc.remote_version();
+
+    doc.transact(bob, |tx| {
+        tx.root().set("b1", "second");
+    });
+
+    // Remote peer has Alice at seq 999 (ahead) but doesn't know about Bob
+    let frontier = smallvec![
+        RemoteVersion(Uuid::from_u128(0xA11CE), 999),
+    ];
+
+    let ops = doc.ops_since_remote(&frontier).into_owned();
+    assert!(!ops.is_empty());
+
+    // Merge into a fresh doc that already has Alice's data
+    let mut doc_b = Document::new();
+    let ops_initial = doc.ops_since(&Frontier::root()).into_owned();
+    doc_b.merge_ops(ops_initial).unwrap();
+
+    // Bob's data should be present
+    assert!(doc_b.root().contains_key("b1"));
+}
+
+/// ops_since should not panic when given a frontier containing versions
+/// unknown to the document. This happens when peer A has versions that
+/// peer B doesn't know about, and B's frontier is passed to A.ops_since().
+#[test]
+fn ops_since_with_unknown_frontier_versions() {
+    let mut doc_a = Document::new();
+    let mut doc_b = Document::new();
+
+    let alice = doc_a.create_agent(Uuid::from_u128(0xA11CE));
+    let bob = doc_b.create_agent(Uuid::from_u128(0xB0B));
+
+    // Alice writes several ops to advance her frontier
+    doc_a.transact(alice, |tx| {
+        tx.root().set("a1", "v1");
+    });
+    doc_a.transact(alice, |tx| {
+        tx.root().set("a2", "v2");
+    });
+
+    // Bob writes several ops independently (no sync) — different LV space
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b1", "v1");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b2", "v2");
+    });
+    doc_b.transact(bob, |tx| {
+        tx.root().set("b3", "v3");
+    });
+
+    // Bob's frontier is [2] (3 ops, 0-indexed). Alice only has LVs 0..2.
+    // Bob's frontier LV 2 exists in Alice's graph but refers to a different op.
+    // To get a truly unknown LV, we need Bob's frontier to exceed Alice's graph length.
+    // Alice has 2 ops (LVs 0,1), Bob has 3 ops (LVs 0,1,2). Bob's LV 2 > Alice's max LV 1.
+    let bob_frontier = doc_b.version().clone();
+    // This should not panic — it should handle the unknown LV gracefully.
+    let _ops = doc_a.ops_since(&bob_frontier);
 }

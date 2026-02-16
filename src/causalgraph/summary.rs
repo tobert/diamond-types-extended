@@ -1,5 +1,5 @@
 use smallvec::{SmallVec, smallvec};
-use smartstring::alias::String as SmartString;
+use uuid::Uuid;
 use crate::{CausalGraph, DTRange, Frontier, LV};
 use crate::rle::{HasLength, MergeableIterator, SplitableSpanHelpers};
 
@@ -10,7 +10,7 @@ use crate::rle::RleSpanHelpers;
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
 pub struct VSEntry {
-    pub name: SmartString,
+    pub name: Uuid,
     pub seq_ranges: SmallVec<DTRange, 2>,
 }
 
@@ -25,7 +25,7 @@ pub struct VersionSummary(Vec<VSEntry>);
 ///
 /// IF the same user agent can submit changes on multiple branches, this property does not hold.
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
-pub struct VersionSummaryFlat(Vec<(SmartString, usize)>);
+pub struct VersionSummaryFlat(Vec<(Uuid, usize)>);
 
 // Serialize as {name1: [[start, end], [start, end], ..], name2: ...}.
 mod serde_encoding {
@@ -35,8 +35,8 @@ mod serde_encoding {
     use serde::de::{MapAccess, Visitor};
     use smallvec::SmallVec;
     use crate::causalgraph::summary::{VersionSummary, VersionSummaryFlat, VSEntry};
+    use uuid::Uuid;
     use crate::DTRange;
-    use smartstring::alias::String as SmartString;
 
     impl Serialize for VersionSummary {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
@@ -60,7 +60,7 @@ mod serde_encoding {
         fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
             let mut vs = VersionSummary(Vec::with_capacity(map.size_hint().unwrap_or(0)));
 
-            while let Some((k, v)) = map.next_entry::<SmartString, SmallVec<DTRange, 2>>()? {
+            while let Some((k, v)) = map.next_entry::<Uuid, SmallVec<DTRange, 2>>()? {
                 vs.0.push(VSEntry {
                     name: k,
                     seq_ranges: v,
@@ -98,7 +98,7 @@ mod serde_encoding {
         fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
             let mut vs = VersionSummaryFlat(Vec::with_capacity(map.size_hint().unwrap_or(0)));
 
-            while let Some((k, v)) = map.next_entry::<SmartString, usize>()? {
+            while let Some((k, v)) = map.next_entry::<Uuid, usize>()? {
                 vs.0.push((k, v))
             }
             Ok(vs)
@@ -118,7 +118,7 @@ impl AgentAssignment {
         VersionSummary(self.client_data.iter().filter_map(|c| {
             if c.lv_for_seq.is_empty() { None } else {
                 Some(VSEntry {
-                    name: c.name.clone(),
+                    name: c.name,
                     seq_ranges: c.lv_for_seq
                         .iter()
                         .map(|e| e.range())
@@ -132,15 +132,15 @@ impl AgentAssignment {
     pub fn summarize_versions_flat(&self) -> VersionSummaryFlat {
         VersionSummaryFlat(self.client_data.iter().filter_map(|c| {
             if c.lv_for_seq.is_empty() { None }
-            else { Some((c.name.clone(), c.get_next_seq())) }
+            else { Some((c.name, c.get_next_seq())) }
         }).collect())
     }
 
     pub fn intersect_with_flat_summary_full<V>(&self, summary: &VersionSummaryFlat, mut visitor: V)
-        where V: FnMut(&str, DTRange, Option<LV>)
+        where V: FnMut(Uuid, DTRange, Option<LV>)
     {
         for (name, known_next_seq) in summary.0.iter() {
-            let agent_id = self.get_agent_id(name);
+            let agent_id = self.get_agent_id(*name);
             let mut next_seq = 0;
 
             if let Some(agent_id) = agent_id {
@@ -160,21 +160,21 @@ impl AgentAssignment {
                         seq_range.truncate_h(*known_next_seq - entry_start);
                     }
 
-                    visitor(name, seq_range, Some(e.1.start));
+                    visitor(*name, seq_range, Some(e.1.start));
                 }
             }
 
             if next_seq < *known_next_seq {
-                visitor(name, (next_seq..*known_next_seq).into(), None);
+                visitor(*name, (next_seq..*known_next_seq).into(), None);
             }
         }
     }
 
-    pub fn intersect_with_summary_full<'a, V>(&self, summary: &'a VersionSummary, mut visitor: V)
-        where V: FnMut(&'a str, DTRange, Option<LV>)
+    pub fn intersect_with_summary_full<V>(&self, summary: &VersionSummary, mut visitor: V)
+        where V: FnMut(Uuid, DTRange, Option<LV>)
     {
         for VSEntry { name, seq_ranges } in summary.0.iter() {
-            if let Some(agent_id) = self.get_agent_id(name) {
+            if let Some(agent_id) = self.get_agent_id(*name) {
                 let client_data = &self.client_data[agent_id as usize];
 
                 for seq_range in seq_ranges {
@@ -184,22 +184,22 @@ impl AgentAssignment {
                         let seq_range = entry.range();
 
                         if seq_range.start > expect_next_seq {
-                            visitor(name, (expect_next_seq..seq_range.start).into(), None);
+                            visitor(*name, (expect_next_seq..seq_range.start).into(), None);
                         }
 
                         expect_next_seq = seq_range.end;
 
-                        visitor(name, seq_range, Some(entry.1.start));
+                        visitor(*name, seq_range, Some(entry.1.start));
                     }
 
                     if expect_next_seq < seq_range.end {
-                        visitor(name, (expect_next_seq..seq_range.end).into(), None);
+                        visitor(*name, (expect_next_seq..seq_range.end).into(), None);
                     }
                 }
             } else {
                 // We're missing all operations for this user agent. Yield back the data from vs.
                 for seq_range in seq_ranges {
-                    visitor(name, *seq_range, None);
+                    visitor(*name, *seq_range, None);
                 }
             }
         }
@@ -219,7 +219,7 @@ impl CausalGraph {
                 versions.push(v_last);
             } else {
                 let remainder = remainder.get_or_insert_with(Default::default);
-                remainder.0.push((name.into(), seq.end));
+                remainder.0.push((name, seq.end));
             }
         });
 
@@ -247,7 +247,7 @@ impl CausalGraph {
                     }
                     _ => {
                         remainder.0.push(VSEntry {
-                            name: name.into(),
+                            name,
                             seq_ranges: smallvec![seq_range],
                         })
                     }
@@ -287,9 +287,14 @@ impl CausalGraph {
 #[cfg(test)]
 mod tests {
     use smallvec::smallvec;
+    use uuid::Uuid;
     use crate::CausalGraph;
     use crate::causalgraph::summary::{VersionSummary, VersionSummaryFlat, VSEntry};
     use crate::causalgraph::agent_span::AgentSpan;
+
+    const SEPH: Uuid = Uuid::from_u128(0x5E98);
+    const MIKE: Uuid = Uuid::from_u128(0x341CE);
+    const KAARINA: Uuid = Uuid::from_u128(0xCAA212A);
 
     #[test]
     fn summary_smoke() {
@@ -297,8 +302,8 @@ mod tests {
         assert_eq!(cg.agent_assignment.summarize_versions(), VersionSummary(vec![]));
         assert_eq!(cg.agent_assignment.summarize_versions_flat(), VersionSummaryFlat(vec![]));
 
-        cg.get_or_create_agent_id("seph");
-        cg.get_or_create_agent_id("mike");
+        cg.get_or_create_agent_id(SEPH);
+        cg.get_or_create_agent_id(MIKE);
 
         assert_eq!(cg.agent_assignment.summarize_versions(), VersionSummary(vec![]));
         assert_eq!(cg.agent_assignment.summarize_versions_flat(), VersionSummaryFlat(vec![]));
@@ -311,7 +316,7 @@ mod tests {
         // dbg!(cg.summarize());
         assert_eq!(cg.agent_assignment.summarize_versions(), VersionSummary(vec![
             VSEntry {
-                name: "seph".into(),
+                name: SEPH,
                 seq_ranges: smallvec![(0..5).into()]
             }
         ]));
@@ -327,18 +332,18 @@ mod tests {
 
         assert_eq!(cg.agent_assignment.summarize_versions(), VersionSummary(vec![
             VSEntry {
-                name: "seph".into(),
+                name: SEPH,
                 seq_ranges: smallvec![(0..10).into()]
             },
             VSEntry {
-                name: "mike".into(),
+                name: MIKE,
                 seq_ranges: smallvec![(0..5).into()]
             }
         ]));
 
         assert_eq!(cg.agent_assignment.summarize_versions_flat(), VersionSummaryFlat(vec![
-            ("seph".into(), 10),
-            ("mike".into(), 5)
+            (SEPH, 10),
+            (MIKE, 5)
         ]));
 
         // cg.intersect_with_flat_summary_full(&VersionSummaryFlat(vec![
@@ -348,8 +353,8 @@ mod tests {
         //     dbg!(name, seq, v);
         // });
         dbg!(cg.intersect_with_flat_summary(&VersionSummaryFlat(vec![
-            ("seph".into(), 10),
-            ("mike".into(), 5),
+            (SEPH, 10),
+            (MIKE, 5),
         ]), &[9]));
 
         // And with a gap...
@@ -360,11 +365,11 @@ mod tests {
 
         assert_eq!(cg.agent_assignment.summarize_versions(), VersionSummary(vec![
             VSEntry {
-                name: "seph".into(),
+                name: SEPH,
                 seq_ranges: smallvec![(0..10).into()]
             },
             VSEntry {
-                name: "mike".into(),
+                name: MIKE,
                 seq_ranges: smallvec![(0..5).into(), (15..20).into()]
             }
         ]));
@@ -373,15 +378,15 @@ mod tests {
     #[test]
     fn intersect_summary() {
         let mut cg = CausalGraph::new();
-        cg.get_or_create_agent_id("seph");
+        cg.get_or_create_agent_id(SEPH);
 
         let vs = VersionSummary(vec![
             VSEntry {
-                name: "seph".into(),
+                name: SEPH,
                 seq_ranges: smallvec![(0..10).into()]
             },
             VSEntry {
-                name: "mike".into(),
+                name: MIKE,
                 seq_ranges: smallvec![(0..5).into()]
             }
         ]);
@@ -391,15 +396,15 @@ mod tests {
             intersect.push((name, seq_range, v_base));
         });
         assert_eq!(&intersect, &[
-            ("seph", (0..10).into(), None),
-            ("mike", (0..5).into(), None),
+            (SEPH, (0..10).into(), None),
+            (MIKE, (0..5).into(), None),
         ]);
 
         let (frontier, remainder) = cg.intersect_with_summary(&vs, &[]);
         assert!(frontier.is_empty());
         assert_eq!(remainder.as_ref(), Some(&vs));
 
-        cg.get_or_create_agent_id("mike");
+        cg.get_or_create_agent_id(MIKE);
         cg.merge_and_assign(&[], AgentSpan {
             agent: 0,
             seq_range: (1..5).into(),
@@ -414,28 +419,28 @@ mod tests {
             intersect.push((name, seq_range, v_base));
         });
         assert_eq!(&intersect, &[
-            ("seph", (0..1).into(), None),
-            ("seph", (1..5).into(), Some(0)),
-            ("seph", (5..8).into(), None),
-            ("seph", (8..9).into(), Some(4)),
-            ("seph", (9..10).into(), None),
-            ("mike", (0..5).into(), None),
+            (SEPH, (0..1).into(), None),
+            (SEPH, (1..5).into(), Some(0)),
+            (SEPH, (5..8).into(), None),
+            (SEPH, (8..9).into(), Some(4)),
+            (SEPH, (9..10).into(), None),
+            (MIKE, (0..5).into(), None),
         ]);
 
         let (frontier, remainder) = cg.intersect_with_summary(&vs, &[]);
         assert_eq!(frontier.as_ref(), &[3, 4]);
         assert_eq!(remainder, Some(VersionSummary(vec![
             VSEntry {
-                name: "seph".into(),
+                name: SEPH,
                 seq_ranges: smallvec![(0..1).into(), (5..8).into(), (9..10).into()],
             },
             VSEntry {
-                name: "mike".into(),
+                name: MIKE,
                 seq_ranges: smallvec![(0..5).into()],
             },
         ])));
 
-        let kaarina = cg.get_or_create_agent_id("kaarina");
+        let kaarina = cg.get_or_create_agent_id(KAARINA);
         let v = cg.merge_and_assign(&[3, 4], AgentSpan {
             agent: kaarina,
             seq_range: (0..10).into(),
