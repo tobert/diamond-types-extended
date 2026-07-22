@@ -8,6 +8,8 @@ use std::io::{Read, Write};
 use std::io::{Seek, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "tvos", target_os = "watchos"))]
+use std::os::fd::AsRawFd;
 
 pub trait DTFile {
     fn stream_len(&mut self) -> io::Result<u64>;
